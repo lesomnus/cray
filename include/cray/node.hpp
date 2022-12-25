@@ -1,14 +1,17 @@
 #pragma once
 
 #include <cassert>
+#include <concepts>
 #include <memory>
 #include <string>
 #include <utility>
 
 #include "cray/detail/prop.hpp"
+#include "cray/detail/props/poly-map.hpp"
 #include "cray/types.hpp"
 
 namespace cray {
+
 namespace detail {
 
 template<typename T>
@@ -23,7 +26,7 @@ class Node {
 	Node(std::shared_ptr<Source> source)
 	    : prev_(std::make_shared<detail::RootProp>(std::move(source))) { }
 
-	bool ok() const {
+	inline bool ok() const {
 		return this->curr_()->ok();
 	}
 
@@ -32,13 +35,7 @@ class Node {
 		using P = detail::PropOf<T>;
 		using D = detail::DescriberOf<P, detail::GettableContext>;
 
-		auto curr = std::dynamic_pointer_cast<P>(this->curr_());
-		if(curr == nullptr) {
-			curr = makeProp<P>(std::move(annotation), this->prev_, this->ref_);
-		} else {
-			curr->annotation = std::move(annotation);
-		}
-
+		auto curr = this->resolve_<P>(std::move(annotation));
 		return D(std::move(curr));
 	}
 
@@ -47,9 +44,33 @@ class Node {
 		return this->is<T>(Annotation{});
 	}
 
+	inline Node operator[](std::string key) {
+		auto curr = this->resolve_<detail::PolyMpaProp>();
+		return Node(std::move(curr), Reference(std::move(key)));
+	}
+
    private:
-	std::shared_ptr<detail::Prop> curr_() const {
+	Node(std::shared_ptr<detail::Prop> prev, Reference ref)
+	    : prev_(std::move(prev))
+	    , ref_(std::move(ref)) { }
+
+	inline std::shared_ptr<detail::Prop> curr_() const {
 		return this->prev_->at(this->ref_);
+	}
+
+	template<std::derived_from<detail::Prop> P>
+	inline std::shared_ptr<P> resolve_(Annotation annotation) const {
+		auto curr = std::dynamic_pointer_cast<P>(this->curr_());
+		if(curr == nullptr) {
+			curr = detail::makeProp<P>(std::move(annotation), this->prev_, this->ref_);
+		}
+
+		return curr;
+	}
+
+	template<std::derived_from<detail::Prop> P>
+	inline std::shared_ptr<P> resolve_() const {
+		return this->resolve_<P>(Annotation{});
 	}
 
 	template<typename T>
@@ -70,11 +91,11 @@ struct NodePropGetter {
 	T value;
 };
 
-auto getProp(Node const& node) {
+inline auto getProp(Node const& node) {
 	return NodePropGetter<Node const&>{node}.get();
 }
 
-auto getProp(Node&& node) {
+inline auto getProp(Node&& node) {
 	return NodePropGetter<Node>{std::move(node)}.get();
 }
 

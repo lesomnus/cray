@@ -189,6 +189,18 @@ TEST_CASE("StrProp::Describer") {
 	}
 }
 
+TEST_CASE("PolyMapProp") {
+	using namespace cray;
+	using _ = Source::Entry::MapValueType;
+
+	Node node(Source::make({
+	    _{"a", {_{"b", {_{"c", 42}}}}},
+	}));
+
+	auto const value = node["a"]["b"]["c"].is<Type::Int>().get();
+	REQUIRE(42 == value);
+}
+
 TEST_CASE("MapProp::Describer") {
 	using namespace cray;
 

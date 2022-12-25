@@ -210,6 +210,7 @@ class StructuredProp: public CodecProp<V> {
 		}
 	}
 
+	// TODO: using ordered map
 	std::unordered_map<std::string, std::shared_ptr<CodecProp<StorageType>>> codecs;
 
 	std::unordered_set<std::string> required_keys;

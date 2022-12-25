@@ -22,11 +22,13 @@ add_library(
 		include/cray/detail/props/map.hpp
 		include/cray/detail/props/mono-list.hpp
 		include/cray/detail/props/mono-map.hpp
+		include/cray/detail/props/poly-map.hpp
 		include/cray/detail/props/scalar.hpp
 		include/cray/detail/props/str.hpp
 		include/cray/detail/props/structured.hpp
 		include/cray/detail/interval.hpp
 		include/cray/detail/ordered_map.hpp
+		include/cray/detail/ordered_set.hpp
 		include/cray/detail/prop.hpp
 		include/cray/detail/props.hpp
 		include/cray/detail/tester.hpp

@@ -18,25 +18,26 @@ include(Catch)
 
 macro (CRay_SIMPLE_TEST NAME)
 	add_executable(
-		${NAME}_test
+		${NAME}-test
 			src/${NAME}.cpp
 	)
 	target_include_directories(
-		${NAME}_test PRIVATE
+		${NAME}-test PRIVATE
 			include
 	)
 	target_link_libraries(
-		${NAME}_test PRIVATE
+		${NAME}-test PRIVATE
 			Catch2::Catch2WithMain
 			CRay::CRay
 	)
-	catch_discover_tests(${NAME}_test)
+	catch_discover_tests(${NAME}-test)
 endmacro (CRay_SIMPLE_TEST)
 
 CRay_SIMPLE_TEST(interval)
 CRay_SIMPLE_TEST(node)
-CRay_SIMPLE_TEST(ordered_map)
+CRay_SIMPLE_TEST(ordered-map)
+CRay_SIMPLE_TEST(ordered-set)
 CRay_SIMPLE_TEST(prop)
-CRay_SIMPLE_TEST(report_yaml)
+CRay_SIMPLE_TEST(report-yaml)
 CRay_SIMPLE_TEST(source)
 CRay_SIMPLE_TEST(types)
