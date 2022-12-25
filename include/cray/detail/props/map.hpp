@@ -33,7 +33,9 @@ class MapProp: public TransitiveProp {
 			assert(prev != nullptr);
 
 			auto new_curr  = makeProp<P>(std::move(annotation), prev, this->prop_->ref);
-			new_curr->next = getProp(std::move(describer));
+			auto next      = getProp(std::move(describer));
+			next->prev     = new_curr;
+			new_curr->next = std::move(next);
 
 			return DescriberOf<P, Ctx>(std::move(new_curr));
 		}

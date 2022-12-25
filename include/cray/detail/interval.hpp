@@ -184,6 +184,10 @@ struct Interval {
 		};
 	}
 
+	constexpr bool isAll() const {
+		return !this->min.has_value() && !this->max.has_value();
+	}
+
 	constexpr bool empty() const {
 		if(!(this->min && this->max)) {
 			return false;

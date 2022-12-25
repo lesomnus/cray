@@ -1,12 +1,15 @@
 #pragma once
 
+#include <algorithm>
 #include <concepts>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <vector>
 
 #include "cray/detail/prop.hpp"
 #include "cray/types.hpp"
@@ -14,8 +17,15 @@
 namespace cray {
 namespace detail {
 
+class MonoMapPropAccessor {
+   public:
+	virtual std::vector<std::string> const& requiredKeys() const = 0;
+};
+
 template<typename V, std::derived_from<CodecProp<V>> P>
-class MonoMapProp: public CodecProp<std::unordered_map<std::string, V>> {
+class MonoMapProp
+    : public CodecProp<std::unordered_map<std::string, V>>
+    , public MonoMapPropAccessor {
    public:
 	using StorageType      = std::unordered_map<std::string, V>;
 	using ChildPropType    = P;
@@ -62,7 +72,23 @@ class MonoMapProp: public CodecProp<std::unordered_map<std::string, V>> {
 			}
 		}
 
-		inline Describer const& containing(std::unordered_set<std::string> keys) const {
+		inline Describer const& containing(std::vector<std::string> keys) const {
+			std::unordered_set<std::string> unique_keys;
+			unique_keys.reserve(keys.size());
+
+			auto cursor = keys.begin();
+			for(auto const& key: keys) {
+				auto [_, ok] = unique_keys.insert(key);
+				if(!ok) {
+					continue;
+				}
+
+				*cursor = key;
+				++cursor;
+			}
+
+			keys.resize(std::distance(keys.begin(), cursor));
+
 			this->prop_->required_keys = std::move(keys);
 			return *this;
 		}
@@ -88,8 +114,9 @@ class MonoMapProp: public CodecProp<std::unordered_map<std::string, V>> {
 		}
 
 		if(!this->required_keys.empty()) {
-			auto       required_keys = this->required_keys;
-			auto const keys          = this->source->keys();
+			std::unordered_set<std::string> required_keys(this->required_keys.begin(), this->required_keys.end());
+
+			auto const keys = this->source->keys();
 			for(auto const key: keys) {
 				required_keys.erase(key);
 				if(required_keys.empty()) {
@@ -106,15 +133,24 @@ class MonoMapProp: public CodecProp<std::unordered_map<std::string, V>> {
 	}
 
 	void markRequired(Reference const& ref) override {
-		this->required_keys.insert(ref.key());
+		this->required_keys.push_back(ref.key());
+	}
+
+	bool needs(Reference const& ref) const override {
+		auto it = std::find(this->required_keys.begin(), this->required_keys.end(), ref.key());
+		return it != this->required_keys.end();
 	}
 
 	std::shared_ptr<Prop> at(Reference const& ref) const override {
 		return this->next;
 	}
 
+	std::vector<std::string> const& requiredKeys() const override {
+		return required_keys;
+	}
+
 	std::shared_ptr<CodecProp<ChildStorageType>> next;
-	std::unordered_set<std::string>              required_keys;
+	std::vector<std::string>                     required_keys;
 
    protected:
 	void encodeTo_(Source& dst, StorageType const& value) const {
@@ -132,11 +168,17 @@ class MonoMapProp: public CodecProp<std::unordered_map<std::string, V>> {
 
 		{
 			auto required_keys = this->required_keys;
-			for(auto const& key: keys) {
-				required_keys.erase(key);
+			auto cursor        = required_keys.begin();
+			for(auto const& key: required_keys) {
+				auto it = std::find(keys.begin(), keys.end(), key);
+				if(it != keys.end()) {
+					continue;
+				}
+
+				++cursor;
 			}
 
-			if(!required_keys.empty()) {
+			if(cursor != required_keys.end()) {
 				return false;
 			}
 		}

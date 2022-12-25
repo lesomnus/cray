@@ -2,6 +2,7 @@
 #include <functional>
 #include <iomanip>
 #include <iostream>
+#include <iterator>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -16,9 +17,24 @@ namespace cray {
 namespace detail {
 namespace {
 
+template<typename T>
+void write(std::ostream& o, Interval<T> interval) {
+	if(interval.min.has_value()) {
+		o << interval.min->value
+		  << (interval.min->is_inclusive ? " ≤ " : " < ");
+	}
+
+	o << "x";
+
+	if(interval.max.has_value()) {
+		o << (interval.max->is_inclusive ? " ≤ " : " < ")
+		  << interval.max->value;
+	}
+}
+
 struct ReportContext {
 	void report(Prop const& prop) {
-		annotate(prop.annotation);
+		annotate(prop);
 
 		switch(prop.type()) {
 		case Type::Nil: return;
@@ -41,14 +57,28 @@ struct ReportContext {
 
 		auto const value = p->opt();
 		if(!value.has_value()) {
+			if(p->isNeeded()) {
+				dst << "  # ⚠️ REQUIRED";
+			} else {
+				dst << "  # ⚠️ INVALID VALUE";
+			}
+
 			return;
+		}
+
+		if(p->default_value.has_value() && (*p->default_value == *value)) {
+			dst << "# ";
 		}
 
 		dst << *value;
 	}
 
 	void reportMap(Prop const& prop) {
-		reportMonoMap(prop);
+		if(dynamic_cast<MonoMapPropAccessor const*>(&prop) != nullptr) {
+			reportMonoMap(prop);
+		} else {
+			throw std::runtime_error("not implemented");
+		}
 	}
 
 	void reportMonoMap(Prop const& prop) {
@@ -57,16 +87,19 @@ struct ReportContext {
 			return;
 		}
 
+		annotate(*next);
+
 		std::function<void()> const report_next = ([&] {
 			switch(next->type()) {
 				// case Type::Nil: return;
 				// case Type::Bool: return;
 
-			case Type::Int:
+			case Type::Int: {
 				return [&] {
 					this->reportInt(*next);
 					this->dst << std::endl;
 				};
+			}
 
 				// case Type::Num: return;
 				// case Type::Str: return;
@@ -78,11 +111,90 @@ struct ReportContext {
 		})();
 
 		auto const keys = prop.source->keys();
+
+		// Check required fields
+		{
+			auto const& accessor      = dynamic_cast<MonoMapPropAccessor const&>(prop);
+			auto        required_keys = accessor.requiredKeys();
+
+			auto cursor = required_keys.begin();
+			for(auto const& key: required_keys) {
+				auto it = std::find(keys.begin(), keys.end(), key);
+				if(it != keys.end()) {
+					continue;
+				}
+
+				*cursor = key;
+				++cursor;
+			}
+
+			required_keys.resize(std::distance(required_keys.begin(), cursor));
+			for(auto const& key: required_keys) {
+				tab();
+				this->dst << key << ":   # ⚠️ REQUIRED" << std::endl;
+			}
+		}
+
 		for(auto const& key: keys) {
 			// TODO: Quote if needed.
+			tab();
 			this->dst << key << ": ";
 			next->source = prop.source->next(key);
+			next->ref    = key;
 			report_next();
+		}
+	}
+
+	void annotate(Annotation const& annotation) {
+		if(!annotation.title.empty()) {
+			tab();
+			this->dst << "# " << annotation.title << std::endl;
+		}
+
+		if(annotation.is_deprecated) {
+			tab();
+			this->dst << "# ⚠️ DEPRECATED" << std::endl;
+		}
+
+		if(!annotation.description.empty()) {
+			// TODO: handle multiline.
+			tab();
+			this->dst << "# | " << annotation.description << std::endl;
+		}
+	}
+
+	void annotate(Prop const& prop) {
+		annotate(prop.annotation);
+		switch(prop.type()) {
+		case Type::Int: annotate(dynamic_cast<IntProp const&>(prop)); return;
+
+		case Type::Map: return;
+
+		default: throw std::runtime_error("not implemented");
+		}
+	}
+
+	void annotate(IntProp const& prop) {
+		bool const has_interval = !prop.interval.isAll();
+		bool const has_divisor  = !prop.multiple_of.empty();
+		if(has_interval || has_divisor) {
+			tab();
+			this->dst << "# • { x ∈ Z | ";
+			if(has_interval && has_divisor) {
+				this->dst << "(";
+				write(this->dst, prop.interval);
+				this->dst << ") ∧ (x / " << prop.multiple_of.divisor << " ∈ Z)";
+			} else if(has_interval) {
+				write(this->dst, prop.interval);
+			} else if(has_divisor) {
+				this->dst << "x / " << prop.multiple_of.divisor << " ∈ Z";
+			}
+			this->dst << " }" << std::endl;
+
+			if(prop.with_clamp) {
+				tab();
+				this->dst << "# • value is clamped if it is not in interval" << std::endl;
+			}
 		}
 	}
 
@@ -94,17 +206,8 @@ struct ReportContext {
 		this->dst << std::string(' ', this->tab_size * this->level);
 	}
 
-	void annotate(Annotation const& annotation) {
-		if(!annotation.title.empty()) {
-			tab();
-			this->dst << "# " << annotation.title << std::endl;
-		}
-
-		if(!annotation.description.empty()) {
-			// TODO: handle multiline.
-			tab();
-			this->dst << "# " << annotation.description << std::endl;
-		}
+	void tabOnce() const {
+		this->dst << std::string(' ', this->tab_size);
 	}
 
 	std::ostream& dst;

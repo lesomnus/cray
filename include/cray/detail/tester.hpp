@@ -8,8 +8,12 @@ namespace detail {
 
 template<std::integral T>
 struct DivisibilityTest {
+	constexpr bool empty() const {
+		return this->divisor == 0;
+	}
+
 	constexpr bool operator()(T value) const {
-		if(this->divisor == 0) {
+		if(this->empty()) {
 			return true;
 		}
 

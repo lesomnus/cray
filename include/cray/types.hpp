@@ -81,7 +81,7 @@ struct Annotation {
 	std::string title;
 	std::string description;
 
-	bool is_deprecated;
+	bool is_deprecated = false;
 };
 
 struct Key {
