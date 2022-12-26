@@ -17,7 +17,11 @@ namespace detail {
 template<typename T>
 struct NodePropGetter;
 
-}
+struct RequiredKey {
+	std::string value;
+};
+
+}  // namespace detail
 
 class Node {
    public:
@@ -47,6 +51,12 @@ class Node {
 	inline Node operator[](std::string key) {
 		auto curr = this->resolve_<detail::PolyMpaProp>();
 		return Node(std::move(curr), Reference(std::move(key)));
+	}
+
+	inline Node operator[](detail::RequiredKey key) {
+		auto curr = this->resolve_<detail::PolyMpaProp>();
+		curr->required_keys.insert(key.value);
+		return Node(std::move(curr), Reference(std::move(key.value)));
 	}
 
    private:
@@ -79,6 +89,10 @@ class Node {
 	std::shared_ptr<detail::Prop> prev_;
 	Reference                     ref_;
 };
+
+inline constexpr detail::RequiredKey req(std::string key) noexcept {
+	return detail::RequiredKey{.value = std::move(key)};
+}
 
 namespace detail {
 

@@ -19,6 +19,18 @@ namespace cray {
 namespace detail {
 namespace {
 
+template<std::integral T>
+struct ScopedIncrement {
+	ScopedIncrement(T& value)
+	    : value(++value) { }
+
+	~ScopedIncrement() {
+		--this->value;
+	}
+
+	T& value;
+};
+
 template<typename T>
 void write(std::ostream& o, Interval<T> interval) {
 	if(interval.min.has_value()) {
@@ -36,12 +48,10 @@ void write(std::ostream& o, Interval<T> interval) {
 
 struct ReportContext {
 	void report(Prop const& prop) {
-		annotate(prop);
-
 		switch(prop.type()) {
 		case Type::Nil: return;
 		case Type::Bool: return;
-		case Type::Int: this->reportInt(prop); return;
+		case Type::Int: this->report(dynamic_cast<IntProp const&>(prop)); return;
 		case Type::Num: return;
 		case Type::Str: return;
 		case Type::Map: this->reportMap(prop); return;
@@ -51,24 +61,16 @@ struct ReportContext {
 		}
 	}
 
-	void reportInt(Prop const& prop) {
-		auto* p = dynamic_cast<IntProp const*>(&prop);
-		if(p == nullptr) {
-			return;
-		}
-
-		auto const value = p->opt();
+	void report(IntProp const& prop) {
+		auto const value = prop.opt();
 		if(!value.has_value()) {
-			if(p->isNeeded()) {
+			if(prop.isNeeded()) {
 				dst << "  # ⚠️ REQUIRED";
-			} else {
-				dst << "  # ⚠️ INVALID VALUE";
 			}
-
 			return;
 		}
 
-		if(p->default_value.has_value() && (*p->default_value == *value)) {
+		if(prop.default_value.has_value() && (*prop.default_value == *value)) {
 			dst << "# ";
 		}
 
@@ -76,57 +78,73 @@ struct ReportContext {
 	}
 
 	void reportMap(Prop const& prop) {
-		if(dynamic_cast<MonoMapPropAccessor const*>(&prop) != nullptr) {
+		auto i = ScopedIncrement(this->level);
+		if(this->level > 0) {
+			this->dst << std::endl;
+		}
+
+		if(auto const* p = dynamic_cast<PolyMpaProp const*>(&prop); p != nullptr) {
+			report(*p);
+		} else if(dynamic_cast<MonoMapPropAccessor const*>(&prop) != nullptr) {
 			reportMonoMap(prop);
 		} else {
 			throw std::runtime_error("not implemented");
 		}
 	}
 
+	void report(PolyMpaProp const& prop) {
+		auto i = prop.next_props.size();
+		for(auto const& [key, next_prop]: prop.next_props) {
+			annotate(*next_prop);
+			this->tab();
+			this->dst << key << ": ";
+			this->report(*next_prop);
+
+			if(--i > 0) {
+				this->dst << std::endl;
+			}
+		}
+	}
+
 	void reportMonoMap(Prop const& prop) {
-		auto const next = prop.at(Reference());
-		if(next == nullptr) {
+		auto const next_prop = prop.at(Reference());
+		if(next_prop == nullptr) {
 			return;
 		}
 
-		annotate(*next);
-
-		std::function<void()> const report_next = ([&] {
-			switch(next->type()) {
-				// case Type::Nil: return;
-				// case Type::Bool: return;
-
-			case Type::Int: {
-				return [&] {
-					this->reportInt(*next);
-					this->dst << std::endl;
-				};
-			}
-
-				// case Type::Num: return;
-				// case Type::Str: return;
-				// case Type::Map: this->reportMap(prop); return;
-				// case Type::List: return;
-
-			default: throw std::runtime_error("not implemented");
-			}
-		})();
+		annotate(*next_prop);
 
 		// Check required fields
 		{
-			auto const& accessor = dynamic_cast<MonoMapPropAccessor const&>(prop);
-			for(auto const& key: accessor.requiredKeys() | std::views::drop_while(HeldBy(*prop.source))) {
-				tab();
-				this->dst << key << ":   # ⚠️ REQUIRED" << std::endl;
+			auto const& accessor      = dynamic_cast<MonoMapPropAccessor const&>(prop);
+			auto const& required_keys = accessor.requiredKeys();
+
+			auto cnt_remain_required_keys = required_keys.size();
+			if(prop.source->size() > 0) {
+				cnt_remain_required_keys += 1;
+			}
+
+			for(auto const& key: required_keys | std::views::drop_while(HeldBy(*prop.source))) {
+				this->tab();
+				this->dst << key << ":   # ⚠️ REQUIRED";
+
+				if(--cnt_remain_required_keys > 0) {
+					this->dst << std::endl;
+				}
 			}
 		}
 
+		auto cnt_remain = prop.source->size();
 		prop.source->keys([&](std::string const& key) {
-			tab();
+			this->tab();
 			this->dst << key << ": ";
-			next->source = prop.source->next(key);
-			next->ref    = key;
-			report_next();
+			next_prop->source = prop.source->next(key);
+			next_prop->ref    = key;
+			this->report(*next_prop);
+
+			if(--cnt_remain > 0) {
+				this->dst << std::endl;
+			}
 
 			return true;
 		});
@@ -134,18 +152,18 @@ struct ReportContext {
 
 	void annotate(Annotation const& annotation) {
 		if(!annotation.title.empty()) {
-			tab();
+			this->tab();
 			this->dst << "# " << annotation.title << std::endl;
 		}
 
 		if(annotation.is_deprecated) {
-			tab();
+			this->tab();
 			this->dst << "# ⚠️ DEPRECATED" << std::endl;
 		}
 
 		if(!annotation.description.empty()) {
 			// TODO: handle multiline.
-			tab();
+			this->tab();
 			this->dst << "# | " << annotation.description << std::endl;
 		}
 	}
@@ -165,7 +183,7 @@ struct ReportContext {
 		bool const has_interval = !prop.interval.isAll();
 		bool const has_divisor  = !prop.multiple_of.empty();
 		if(has_interval || has_divisor) {
-			tab();
+			this->tab();
 			this->dst << "# • { x ∈ Z | ";
 			if(has_interval && has_divisor) {
 				this->dst << "(";
@@ -179,28 +197,28 @@ struct ReportContext {
 			this->dst << " }" << std::endl;
 
 			if(prop.with_clamp) {
-				tab();
+				this->tab();
 				this->dst << "# • value is clamped if it is not in interval" << std::endl;
 			}
 		}
 	}
 
 	void tab() const {
-		if(this->level == 0) {
+		if(this->level <= 0) {
 			return;
 		}
 
-		this->dst << std::string(' ', this->tab_size * this->level);
+		this->dst << std::string(this->tab_size * this->level, ' ');
 	}
 
 	void tabOnce() const {
-		this->dst << std::string(' ', this->tab_size);
+		this->dst << std::string(this->tab_size, ' ');
 	}
 
 	std::ostream& dst;
 
-	std::size_t tab_size = 4;
-	std::size_t level    = 0;
+	std::size_t tab_size = 2;
+	int         level    = -1;
 };
 
 }  // namespace
@@ -213,7 +231,9 @@ namespace {
 class YamlReporter: public Reporter {
    protected:
 	void report_(std::ostream& dst, detail::Prop const& prop) const override {
-		detail::ReportContext{.dst = dst}.report(prop);
+		auto ctx = detail::ReportContext{.dst = dst};
+		ctx.annotate(prop);
+		ctx.report(prop);
 	}
 };
 
