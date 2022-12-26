@@ -1,4 +1,5 @@
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -26,9 +27,8 @@ class NullSource: public Source {
 		return instance;
 	};
 
-	std::vector<std::string> keys() const override {
-		return {};
-	};
+	void keys(std::function<bool(std::string const& key)> const& functor) const override {
+	}
 
 	std::size_t size() const override {
 		return 0;

@@ -1,12 +1,11 @@
 #pragma once
 
-#include <any>
 #include <cstddef>
+#include <functional>
 #include <initializer_list>
 #include <memory>
 #include <string>
 #include <utility>
-#include <variant>
 #include <vector>
 
 #include <unordered_map>
@@ -44,8 +43,16 @@ class Source {
 	virtual std::shared_ptr<Source> next(Reference const& ref)       = 0;
 	virtual std::shared_ptr<Source> next(Reference const& ref) const = 0;
 
-	virtual std::vector<std::string> keys() const = 0;
-	virtual std::size_t              size() const = 0;
+	virtual void keys(std::function<bool(std::string const& key)> const& functor) const = 0;
+
+	inline void keys(std::function<bool(std::size_t index, std::string const& key)> const& functor) {
+		std::size_t i = 0;
+		this->keys([&](std::string const& key) {
+			return functor(i++, key);
+		});
+	}
+
+	virtual std::size_t size() const = 0;
 
 	virtual bool has(Reference const& ref) const = 0;
 
@@ -64,5 +71,15 @@ class Source {
 	virtual void set(StorageOf<Type::Str> const& value) = 0;
 	virtual void set(StorageOf<Type::Str>&& value)      = 0;
 };
+
+namespace detail {
+
+inline auto HeldBy(Source const& source) {
+	return [&](std::string const& key) {
+		return source.has(key);
+	};
+}
+
+}  // namespace detail
 
 }  // namespace cray

@@ -32,10 +32,10 @@ class MapProp: public TransitiveProp {
 			auto const prev = this->prop_->prev.lock();
 			assert(prev != nullptr);
 
-			auto new_curr  = makeProp<P>(std::move(annotation), prev, this->prop_->ref);
-			auto next      = getProp(std::move(describer));
-			next->prev     = new_curr;
-			new_curr->next = std::move(next);
+			auto new_curr       = makeProp<P>(std::move(annotation), prev, this->prop_->ref);
+			auto next           = getProp(std::move(describer));
+			next->prev          = new_curr;
+			new_curr->next_prop = std::move(next);
 
 			return DescriberOf<P, Ctx>(std::move(new_curr));
 		}

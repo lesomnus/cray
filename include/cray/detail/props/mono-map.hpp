@@ -7,11 +7,12 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
+#include "cray/detail/ordered_set.hpp"
 #include "cray/detail/prop.hpp"
+#include "cray/detail/tester.hpp"
 #include "cray/types.hpp"
 
 namespace cray {
@@ -19,7 +20,7 @@ namespace detail {
 
 class MonoMapPropAccessor {
    public:
-	virtual std::vector<std::string> const& requiredKeys() const = 0;
+	virtual OrderedSet<std::string> const& requiredKeys() const = 0;
 };
 
 template<typename V, std::derived_from<CodecProp<V>> P>
@@ -72,23 +73,7 @@ class MonoMapProp
 			}
 		}
 
-		inline Describer const& containing(std::vector<std::string> keys) const {
-			std::unordered_set<std::string> unique_keys;
-			unique_keys.reserve(keys.size());
-
-			auto cursor = keys.begin();
-			for(auto const& key: keys) {
-				auto [_, ok] = unique_keys.insert(key);
-				if(!ok) {
-					continue;
-				}
-
-				*cursor = key;
-				++cursor;
-			}
-
-			keys.resize(std::distance(keys.begin(), cursor));
-
+		inline Describer const& containing(OrderedSet<std::string> keys) const {
 			this->prop_->required_keys = std::move(keys);
 			return *this;
 		}
@@ -105,7 +90,7 @@ class MonoMapProp
 	}
 
 	std::string name() const override {
-		return "Map<" + this->next->name() + ">";
+		return "Map<" + this->next_prop->name() + ">";
 	}
 
 	bool ok() const override {
@@ -113,27 +98,15 @@ class MonoMapProp
 			return !this->isNeeded() || this->hasDefault();
 		}
 
-		if(!this->required_keys.empty()) {
-			std::unordered_set<std::string> required_keys(this->required_keys.begin(), this->required_keys.end());
-
-			auto const keys = this->source->keys();
-			for(auto const key: keys) {
-				required_keys.erase(key);
-				if(required_keys.empty()) {
-					break;
-				}
-			}
-
-			if(!required_keys.empty()) {
-				return false;
-			}
+		if(!std::ranges::all_of(this->required_keys, HeldBy(*this->source))) {
+			return false;
 		}
 
 		return true;
 	}
 
 	void markRequired(Reference const& ref) override {
-		this->required_keys.push_back(ref.key());
+		this->required_keys.insert(ref.key());
 	}
 
 	bool needs(Reference const& ref) const override {
@@ -142,20 +115,20 @@ class MonoMapProp
 	}
 
 	std::shared_ptr<Prop> at(Reference const& ref) const override {
-		return this->next;
+		return this->next_prop;
 	}
 
-	std::vector<std::string> const& requiredKeys() const override {
+	OrderedSet<std::string> const& requiredKeys() const override {
 		return required_keys;
 	}
 
-	std::shared_ptr<CodecProp<ChildStorageType>> next;
-	std::vector<std::string>                     required_keys;
+	std::shared_ptr<CodecProp<ChildStorageType>> next_prop;
+	OrderedSet<std::string>                      required_keys;
 
    protected:
 	void encodeTo_(Source& dst, StorageType const& value) const {
 		for(auto const& [key, next_value]: value) {
-			this->next->encodeTo(*this->source->next(key), next_value);
+			this->next_prop->encodeTo(*this->source->next(key), next_value);
 		}
 	}
 
@@ -164,31 +137,13 @@ class MonoMapProp
 			return false;
 		}
 
-		auto const keys = src.keys();
-
-		{
-			auto required_keys = this->required_keys;
-			auto cursor        = required_keys.begin();
-			for(auto const& key: required_keys) {
-				auto it = std::find(keys.begin(), keys.end(), key);
-				if(it != keys.end()) {
-					continue;
-				}
-
-				++cursor;
-			}
-
-			if(cursor != required_keys.end()) {
-				return false;
-			}
+		if(!std::ranges::all_of(this->required_keys, HeldBy(*this->source))) {
+			return false;
 		}
 
-		for(auto const& key: keys) {
-			auto const ok = this->next->decodeFrom(*this->source->next(key), value[key]);
-			if(!ok) {
-				return false;
-			}
-		}
+		src.keys([&](std::string const& key) {
+			return this->next_prop->decodeFrom(*this->source->next(key), value[key]);
+		});
 
 		return true;
 	}

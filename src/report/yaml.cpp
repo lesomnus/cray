@@ -7,6 +7,8 @@
 #include <stdexcept>
 #include <string>
 
+#include <ranges>
+
 #include "cray/detail/props.hpp"
 #include "cray/node.hpp"
 #include "cray/report.hpp"
@@ -110,39 +112,24 @@ struct ReportContext {
 			}
 		})();
 
-		auto const keys = prop.source->keys();
-
 		// Check required fields
 		{
-			auto const& accessor      = dynamic_cast<MonoMapPropAccessor const&>(prop);
-			auto        required_keys = accessor.requiredKeys();
-
-			auto cursor = required_keys.begin();
-			for(auto const& key: required_keys) {
-				auto it = std::find(keys.begin(), keys.end(), key);
-				if(it != keys.end()) {
-					continue;
-				}
-
-				*cursor = key;
-				++cursor;
-			}
-
-			required_keys.resize(std::distance(required_keys.begin(), cursor));
-			for(auto const& key: required_keys) {
+			auto const& accessor = dynamic_cast<MonoMapPropAccessor const&>(prop);
+			for(auto const& key: accessor.requiredKeys() | std::views::drop_while(HeldBy(*prop.source))) {
 				tab();
 				this->dst << key << ":   # ⚠️ REQUIRED" << std::endl;
 			}
 		}
 
-		for(auto const& key: keys) {
-			// TODO: Quote if needed.
+		prop.source->keys([&](std::string const& key) {
 			tab();
 			this->dst << key << ": ";
 			next->source = prop.source->next(key);
 			next->ref    = key;
 			report_next();
-		}
+
+			return true;
+		});
 	}
 
 	void annotate(Annotation const& annotation) {

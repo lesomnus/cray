@@ -25,16 +25,24 @@ class OrderedSet {
 		}
 	}
 
-	std::size_t size() const {
+	inline std::size_t size() const {
 		return this->values_.size();
 	}
 
-	const_iterator find(value_type const& value) const {
-		return std::find(this->values_.begin(), this->values_.end(), value);
+	inline bool empty() const {
+		return this->values_.empty();
 	}
 
-	iterator find(value_type const& value) {
-		return std::find(this->values_.begin(), this->values_.end(), value);
+	inline const_iterator find(value_type const& value) const {
+		return std::ranges::find(this->values_.begin(), this->values_.end(), value);
+	}
+
+	inline iterator find(value_type const& value) {
+		return std::ranges::find(this->values_.begin(), this->values_.end(), value);
+	}
+
+	inline bool contains(value_type const& value) const {
+		return this->find(value) != this->end();
 	}
 
 	std::pair<iterator, bool> insert(value_type const& value) {
@@ -55,39 +63,31 @@ class OrderedSet {
 		}
 	}
 
-	iterator erase(const_iterator first, const_iterator last) {
+	inline iterator erase(const_iterator first, const_iterator last) {
 		return this->values_.erase(first, last);
 	}
 
-	const_iterator begin() const {
+	inline const_iterator begin() const {
 		return this->values_.begin();
 	}
 
-	const_iterator end() const {
+	inline const_iterator end() const {
 		return this->values_.end();
 	}
 
-	iterator begin() {
+	inline iterator begin() {
 		return this->values_.begin();
 	}
 
-	iterator end() {
+	inline iterator end() {
 		return this->values_.end();
 	}
 
-	const_iterator cbegin() const {
+	inline const_iterator cbegin() const {
 		return this->values_.cbegin();
 	}
 
-	const_iterator cend() const {
-		return this->values_.cend();
-	}
-
-	const_iterator cbegin() {
-		return this->values_.cbegin();
-	}
-
-	const_iterator cend() {
+	inline const_iterator cend() const {
 		return this->values_.cend();
 	}
 

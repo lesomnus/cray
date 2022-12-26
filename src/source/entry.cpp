@@ -1,6 +1,7 @@
 #include <cassert>
 #include <concepts>
 #include <cstddef>
+#include <functional>
 #include <initializer_list>
 #include <memory>
 #include <string>
@@ -45,8 +46,7 @@ class RootEntry: public Entry_ {
 		return this->value;
 	}
 
-	std::vector<std::string> keys() const override {
-		return {};
+	void keys(std::function<bool(std::string const& key)> const& functor) const override {
 	}
 
 	std::size_t size() const override {
@@ -102,8 +102,7 @@ class ScalarEntry: public Entry_ {
 		throw detail::InvalidAccessError();
 	}
 
-	std::vector<std::string> keys() const override {
-		return {};
+	void keys(std::function<bool(std::string const& key)> const& functor) const override {
 	}
 
 	std::size_t size() const override {
@@ -190,14 +189,12 @@ class MapEntry: public Entry_ {
 		return this->values.at(ref.key());
 	}
 
-	std::vector<std::string> keys() const override {
-		std::vector<std::string> rst;
-		rst.reserve(this->values.size());
+	void keys(std::function<bool(std::string const& key)> const& functor) const override {
 		for(auto const& [key, _]: this->values) {
-			rst.emplace_back(key);
+			if(!functor(key)) {
+				return;
+			}
 		}
-
-		return rst;
 	}
 
 	std::size_t size() const override {
@@ -276,8 +273,7 @@ class ListEntry: public Entry_ {
 		return this->values.at(index);
 	}
 
-	std::vector<std::string> keys() const override {
-		return {};
+	void keys(std::function<bool(std::string const& key)> const& functor) const override {
 	}
 
 	std::size_t size() const override {
@@ -354,13 +350,9 @@ class Accessor: public Source {
 		return std::make_shared<Accessor>(std::move(curr), ref);
 	}
 
-	std::vector<std::string> keys() const override {
+	void keys(std::function<bool(std::string const& key)> const& functor) const override {
 		auto const curr = this->curr_();
-		if(curr == nullptr) {
-			return {};
-		}
-
-		return curr->keys();
+		curr->keys(functor);
 	}
 
 	std::size_t size() const override {

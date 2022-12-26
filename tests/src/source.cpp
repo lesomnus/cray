@@ -149,11 +149,11 @@ TEST_CASE("Source::Entry") {
 
 		REQUIRE(6 == entry.source->size());
 
-		auto const keys = entry.source->keys();
-		REQUIRE(6 == keys.size());
-
 		std::vector<std::string> const expected_keys{"a", "b", "c", "d", "e", "f"};
-		REQUIRE(std::equal(keys.begin(), keys.end(), expected_keys.begin()));
+		entry.source->keys([&expected_keys](std::size_t index, std::string const& key) {
+			REQUIRE(expected_keys[index] == key);
+			return true;
+		});
 
 		REQUIRE(eq(entry.source->next("a"), StorageOf<Type::Nil>(nullptr)));
 		REQUIRE(eq(entry.source->next("b"), StorageOf<Type::Bool>(true)));
@@ -254,7 +254,11 @@ TEST_CASE("Source::null") {
 	REQUIRE(Source::null() == Source::null()->next("name"));
 	REQUIRE(Source::null() == Source::null()->next(42));
 
-	REQUIRE(Source::null()->keys().empty());
+	Source::null()->keys([](std::size_t index, std::string const& key) {
+		FAIL();
+		return false;
+	});
+
 	REQUIRE(0 == Source::null()->size());
 
 	REQUIRE(!Source::null()->is(Type::Nil));

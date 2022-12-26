@@ -4,10 +4,10 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
+#include "cray/detail/ordered_set.hpp"
 #include "cray/detail/prop.hpp"
 #include "cray/types.hpp"
 
@@ -213,7 +213,7 @@ class StructuredProp: public CodecProp<V> {
 	// TODO: using ordered map
 	std::unordered_map<std::string, std::shared_ptr<CodecProp<StorageType>>> codecs;
 
-	std::unordered_set<std::string> required_keys;
+	OrderedSet<std::string> required_keys;
 
    protected:
 	void encodeTo_(Source& dst, StorageType const& value) const override {
@@ -229,6 +229,7 @@ class StructuredProp: public CodecProp<V> {
 			if(codec->decodeFrom(src, value)) {
 				continue;
 			}
+
 			if(!this->required_keys.contains(key)) {
 				continue;
 			}

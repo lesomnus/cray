@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cassert>
-#include <concepts>
 
 namespace cray {
 namespace detail {
