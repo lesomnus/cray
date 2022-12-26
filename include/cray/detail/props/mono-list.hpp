@@ -135,7 +135,7 @@ template<std::derived_from<Prop> P>
 using MonoListPropOf = MonoListProp<typename P::StorageType, P>;
 
 template<typename T>
-struct PropFor_<std::vector<std::string, T>> {
+struct PropFor_<std::vector<T>> {
 	using type = MonoListPropOf<PropFor<T>>;
 };
 

@@ -17,11 +17,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_library(
 	CRay SHARED
+		include/cray/detail/props/bool.hpp
 		include/cray/detail/props/int.hpp
 		include/cray/detail/props/list.hpp
 		include/cray/detail/props/map.hpp
 		include/cray/detail/props/mono-list.hpp
 		include/cray/detail/props/mono-map.hpp
+		include/cray/detail/props/nil.hpp
+		include/cray/detail/props/num.hpp
+		include/cray/detail/props/numeric.hpp
 		include/cray/detail/props/poly-map.hpp
 		include/cray/detail/props/scalar.hpp
 		include/cray/detail/props/str.hpp
@@ -31,7 +35,6 @@ add_library(
 		include/cray/detail/ordered_set.hpp
 		include/cray/detail/prop.hpp
 		include/cray/detail/props.hpp
-		include/cray/detail/tester.hpp
 		include/cray/node.hpp
 		include/cray/report.hpp
 		include/cray/source.hpp

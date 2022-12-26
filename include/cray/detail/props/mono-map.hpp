@@ -12,7 +12,6 @@
 
 #include "cray/detail/ordered_set.hpp"
 #include "cray/detail/prop.hpp"
-#include "cray/detail/tester.hpp"
 #include "cray/types.hpp"
 
 namespace cray {
