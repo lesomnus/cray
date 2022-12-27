@@ -20,6 +20,8 @@ struct Profile {
 	Nested nested;
 
 	std::optional<unsigned int> id;
+
+	std::unordered_map<std::string, int> balance;
 };
 
 template<typename T, typename U>
@@ -303,8 +305,7 @@ TEST_CASE("MapProp") {
 
 TEST_CASE("MonoMapProp") {
 	using namespace cray;
-
-	Node node(Source::make({std::pair{"answer", 42}}));
+	using _ = Source::Entry::MapValueType;
 
 	SECTION("::defaultValue") {
 		Node null_node(Source::null());
@@ -338,6 +339,8 @@ TEST_CASE("MonoMapProp") {
 	}
 
 	SECTION("::containing") {
+		Node node(Source::make({_{"answer", 42}}));
+
 		node.is<Type::Map>().of<Type::Int>().containing({"foo"});
 		REQUIRE(!node.ok());
 
@@ -360,10 +363,50 @@ TEST_CASE("MonoMapProp") {
 	}
 
 	SECTION("::get") {
+		Node node(Source::make({_{"answer", 42}}));
+
 		auto const value = node.is<Type::Map>().of<Type::Int>().get();
 		REQUIRE(node.ok());
 		REQUIRE(1 == value.size());
 		REQUIRE(42 == value.at("answer"));
+	}
+
+	SECTION("nested") {
+		SECTION("::get") {
+			Node node(Source::make({
+			    _{"A", {_{"a", 1}, _{"b", 2}, _{"c", 3}}},
+			    _{"B", {_{"d", 4}, _{"e", 5}, _{"f", 6}}},
+			    _{"C", {_{"g", 7}, _{"h", 8}, _{"i", 9}}},
+			}));
+
+			std::unordered_map<std::string, std::unordered_map<std::string, StorageOf<Type::Int>>> const expected{
+			    {"A", {{"a", 1}, {"b", 2}, {"c", 3}}},
+			    {"B", {{"d", 4}, {"e", 5}, {"f", 6}}},
+			    {"C", {{"g", 7}, {"h", 8}, {"i", 9}}},
+			};
+
+			auto const actual = node.is<Type::Map>().of(prop<Type::Map>().of<Type::Int>()).get();
+			REQUIRE(expected == actual);
+		}
+	}
+
+	SECTION("of MonoList") {
+		SECTION("::get") {
+			Node node(Source::make({
+			    _{"a", {1, 2, 3}},
+			    _{"b", {4, 5, 6}},
+			    _{"c", {7, 8, 9}},
+			}));
+
+			std::unordered_map<std::string, std::vector<StorageOf<Type::Int>>> const expected{
+			    {"a", {1, 2, 3}},
+			    {"b", {4, 5, 6}},
+			    {"c", {7, 8, 9}},
+			};
+
+			auto const actual = node.is<Type::Map>().of(prop<Type::List>().of<Type::Int>()).get();
+			REQUIRE(expected == actual);
+		}
 	}
 }
 
@@ -432,7 +475,7 @@ TEST_CASE("StructuredProp") {
 		REQUIRE(!profile.id.has_value());
 	}
 
-	SECTION("nested structured field") {
+	SECTION("nested") {
 		auto const profile =
 		    node.is<Type::Map>().to<Profile>()
 		        | (field("nested", &Profile::nested)
@@ -442,6 +485,24 @@ TEST_CASE("StructuredProp") {
 		REQUIRE(node.ok());
 		REQUIRE(21 == profile.nested.value);
 	}
+
+	// SECTION("of MonoMapProp") {
+	// 	Node node(Source::make({
+	// 	    _{"balance", {_{"USD", 123}, _{"KRW", 456789}}},
+	// 	}));
+
+	// 	auto const actual =
+	// 	    node.is<Type::Map>().to<Profile>()
+	// 	        | field("balance", &Profile::balance)
+	// 	    && get;
+
+	// 	std::unordered_map<std::string, int> const expected{
+	// 	    {"USD", 123},
+	// 	    {"KRW", 456789},
+	// 	};
+
+	// 	REQUIRE(expected == actual.balance);
+	// }
 }
 
 TEST_CASE("ListProp") {
@@ -454,8 +515,7 @@ TEST_CASE("ListProp") {
 
 TEST_CASE("MonoListProp") {
 	using namespace cray;
-
-	Node node(Source::make({3, 5, 13, 21, 42}));
+	using _ = Source::Entry::MapValueType;
 
 	SECTION("::defaultValue") {
 		Node null_node(Source::null());
@@ -485,6 +545,8 @@ TEST_CASE("MonoListProp") {
 	}
 
 	SECTION("::size") {
+		Node node(Source::make({3, 5, 13, 21, 42}));
+
 		node.is<Type::List>().of<Type::Int>().size(x < 3);
 		REQUIRE(!node.ok());
 
@@ -507,9 +569,49 @@ TEST_CASE("MonoListProp") {
 	}
 
 	SECTION("::get") {
+		Node node(Source::make({3, 5, 13, 21, 42}));
+
 		auto const value = node.is<Type::List>().of<Type::Int>().get();
 		REQUIRE(node.ok());
 		REQUIRE(5 == value.size());
 		REQUIRE(13 == value.at(2));
+	}
+
+	SECTION("nested") {
+		SECTION("::get") {
+			Node node(Source::make({
+			    {1, 2, 3},
+			    {4, 5, 6},
+			    {7, 8, 9},
+			}));
+
+			std::vector<std::vector<StorageOf<Type::Int>>> const expected{
+			    {1, 2, 3},
+			    {4, 5, 6},
+			    {7, 8, 9},
+			};
+
+			auto const actual = node.is<Type::List>().of(prop<Type::List>().of<Type::Int>()).get();
+			REQUIRE(expected == actual);
+		}
+	}
+
+	SECTION("of MonoMap") {
+		SECTION("::get") {
+			Node node(Source::make({
+			    {_{"a", 0}, _{"b", 1}, _{"c", 2}},
+			    {_{"d", 3}, _{"e", 4}, _{"f", 5}},
+			    {_{"g", 6}, _{"h", 7}, _{"i", 8}},
+			}));
+
+			std::vector<std::unordered_map<std::string, StorageOf<Type::Int>>> const expected{
+			    {{"a", 0}, {"b", 1}, {"c", 2}},
+			    {{"d", 3}, {"e", 4}, {"f", 5}},
+			    {{"g", 6}, {"h", 7}, {"i", 8}},
+			};
+
+			auto const actual = node.is<Type::List>().of(prop<Type::Map>().of<Type::Int>()).get();
+			REQUIRE(expected == actual);
+		}
 	}
 }

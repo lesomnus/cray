@@ -1,4 +1,5 @@
 #include <memory>
+#include <optional>
 #include <type_traits>
 
 #include <catch2/catch_test_macros.hpp>
@@ -17,8 +18,64 @@ TEST_CASE("is") {
 TEST_CASE("as") {
 	using namespace cray;
 
-	Node node(Source::make(42));
-	REQUIRE(42 == node.as<int>());
+	SECTION("optional") {
+		{
+			Node node(Source::null());
+
+			node.as<int>();
+			REQUIRE(!node.ok());
+		}
+
+		{
+			Node node(Source::null());
+
+			node.as<std::optional<int>>();
+			REQUIRE(node.ok());
+		}
+	}
+
+	auto const be = []<typename T>(Node node, T expected) -> bool {
+		return (expected == node.as<T>()) && (expected == node.as<std::optional<T>>().value());
+	};
+
+	SECTION("nullptr") {
+		REQUIRE(be(Node(Source::make(nullptr)), nullptr));
+	}
+
+	SECTION("bool") {
+		REQUIRE(be(Node(Source::make(true)), true));
+		REQUIRE(be(Node(Source::make(false)), false));
+	}
+
+	SECTION("integral") {
+		Node node(Source::make(42));
+
+		REQUIRE(be(node, (short)(42)));
+		REQUIRE(be(node, (int)(42)));
+		REQUIRE(be(node, (long)(42)));
+		REQUIRE(be(node, (long long)(42)));
+
+		REQUIRE(be(node, (unsigned short)(42)));
+		REQUIRE(be(node, (unsigned int)(42)));
+		REQUIRE(be(node, (unsigned long)(42)));
+		REQUIRE(be(node, (unsigned long long)(42)));
+	}
+
+	SECTION("floating point") {
+		Node node(Source::make(3.14));
+
+		REQUIRE(be(node, (float)(3.14)));
+		REQUIRE(be(node, (double)(3.14)));
+		REQUIRE(be(node, (long double)(3.14)));
+	}
+
+	SECTION("std::string") {
+		REQUIRE(be(Node(Source::make("hypnos")), std::string("hypnos")));
+	}
+
+	// SECTION("std::vector") {
+	// 	REQUIRE(be(Node(Source::make({1, 2, 3})), std::vector<int>({1, 2, 3})));
+	// }
 }
 
 TEST_CASE("getProp") {

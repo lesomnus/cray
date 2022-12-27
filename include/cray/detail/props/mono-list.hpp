@@ -116,23 +116,25 @@ class MonoListProp
    protected:
 	void encodeInto_(Source& dst, StorageType const& value) const {
 		for(std::size_t index = 0; index < value.size(); ++index) {
-			this->next_prop->encodeInto(*dst.next(index), value.at(index));
+			auto const next = dst.next(index);
+			this->next_prop->encodeInto(*next, value.at(index));
 		}
 	}
 
 	bool decodeFrom_(Source const& src, StorageType& value) const {
-		if(!this->source->is(Type::List)) {
+		if(!src.is(Type::List)) {
 			return false;
 		}
 
-		auto const size = this->source->size();
+		auto const size = src.size();
 		if(!this->size.contains(size)) {
 			return false;
 		}
 
 		value.resize(size);
 		for(std::size_t index = 0; index < size; ++index) {
-			auto const ok = this->next_prop->decodeFrom(*this->source->next(index), value.at(index));
+			auto const next = src.next(index);
+			auto const ok   = this->next_prop->decodeFrom(*next, value.at(index));
 			if(!ok) {
 				return false;
 			}
