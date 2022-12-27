@@ -151,6 +151,15 @@ TEST_CASE("IntProp") {
 )";
 	}
 
+	SECTION("default value") {
+		node = Node(Source::null());
+		node.is<Type::Int>().defaultValue(42);
+
+		expected = R"(
+# 42
+)";
+	}
+
 	SECTION("interval") {
 		describer.interval(-1 < x <= 1);
 
@@ -200,6 +209,15 @@ TEST_CASE("NumProp") {
 )";
 	}
 
+	SECTION("default value") {
+		node = Node(Source::null());
+		node.is<Type::Num>().defaultValue(3.14);
+
+		expected = R"(
+# 3.14
+)";
+	}
+
 	SECTION("interval") {
 		describer.interval(-1.2 < x <= 2.718);
 
@@ -246,6 +264,15 @@ TEST_CASE("StrProp") {
 	SECTION("no constraints") {
 		expected = R"(
 hypnos
+)";
+	}
+
+	SECTION("default value") {
+		node = Node(Source::null());
+		node.is<Type::Str>().defaultValue("hypnos");
+
+		expected = R"(
+# hypnos
 )";
 	}
 
@@ -395,6 +422,15 @@ TEST_CASE("MonoListProp") {
 )";
 	}
 
+	SECTION("default value") {
+		node = Node(Source::null());
+		node.is<Type::List>().of<Type::Int>().defaultValue({2, 4, 8});
+
+		expected = R"(
+# [2, 4, 8]
+)";
+	}
+
 	SECTION("size") {
 		describer.size(2 < x <= 5);
 
@@ -418,17 +454,6 @@ TEST_CASE("MonoListProp") {
 - [7, 8, 9]
 )";
 	}
-
-	// 	SECTION("annotation on next level") {
-	// 		auto describer_next = prop<Type::Int>();
-
-	// 		node.is<Type::Map>().of(prop<Type::Int>(Annotation{.title = "Counts"}).interval(3 < x));
-	// 		expected = R"(
-	// # Counts
-	// # • { x ∈ Z | 3 < x }
-	// a:
-	// )";
-	// 	}
 
 	std::stringstream rst;
 	rst << std::endl;

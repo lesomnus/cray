@@ -41,6 +41,10 @@ class FieldProp
 		return P::hasDefault();
 	}
 
+	void encodeDefaultValueInto(Source& dst) const override {
+		return P::encodeDefaultValueInto(dst);
+	}
+
 	void makeRequired() const override {
 		if constexpr(!IsOptional<V>) {
 			P::makeRequired();
@@ -50,18 +54,18 @@ class FieldProp
 	StorageType MappedType::*member;
 
    protected:
-	void encodeTo_(Source& dst, MappedType const& value) const override {
+	void encodeInto_(Source& dst, MappedType const& value) const override {
 		if constexpr(IsOptional<V>) {
 			if(value.*this->member) {
 				typename P::StorageType const v = *(value.*this->member);
-				P::encodeTo(dst, v);
+				P::encodeInto(dst, v);
 			}
 		} else {
 			if constexpr(std::is_same_v<StorageType, typename P::StorageType>) {
-				P::encodeTo(dst, value.*this->member);
+				P::encodeInto(dst, value.*this->member);
 			} else {
 				typename P::StorageType const v = value.*this->member;
-				P::encodeTo(dst, v);
+				P::encodeInto(dst, v);
 			}
 		}
 	}
@@ -216,9 +220,9 @@ class StructuredProp: public CodecProp<V> {
 	OrderedSet<std::string> required_keys;
 
    protected:
-	void encodeTo_(Source& dst, StorageType const& value) const override {
+	void encodeInto_(Source& dst, StorageType const& value) const override {
 		for(auto const& [key, codec]: this->codecs) {
-			codec->encodeTo(dst, value);
+			codec->encodeInto(dst, value);
 		}
 	}
 

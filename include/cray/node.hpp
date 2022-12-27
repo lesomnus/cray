@@ -48,6 +48,21 @@ class Node {
 		return this->is<T>(Annotation{});
 	}
 
+	template<typename T>
+	inline auto as(Annotation annotation) {
+		auto curr = this->resolve_<detail::PropFor<T>>(std::move(annotation));
+		if constexpr(detail::IsOptional<T>) {
+			return curr->opt();
+		} else {
+			return curr->get();
+		}
+	}
+
+	template<typename T>
+	inline T as() {
+		return this->as<T>(Annotation{});
+	}
+
 	inline Node operator[](std::string key) {
 		auto curr = this->resolve_<detail::PolyMpaProp>();
 		return Node(std::move(curr), Reference(std::move(key)));

@@ -312,7 +312,7 @@ class ListEntry: public Entry_ {
 		auto const index = ref.index();
 
 		if(index >= this->values.size()) {
-			this->values.resize(index);
+			this->values.resize(index + 1);
 		}
 
 		this->values[index] = std::move(entry);

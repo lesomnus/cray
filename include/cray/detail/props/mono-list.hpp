@@ -114,9 +114,9 @@ class MonoListProp
 	Interval<std::size_t> size;
 
    protected:
-	void encodeTo_(Source& dst, StorageType const& value) const {
+	void encodeInto_(Source& dst, StorageType const& value) const {
 		for(std::size_t index = 0; index < value.size(); ++index) {
-			this->next_prop->encodeTo(*this->source->next(index), value.at(index));
+			this->next_prop->encodeInto(*dst.next(index), value.at(index));
 		}
 	}
 

@@ -87,7 +87,7 @@ TEST_CASE("getProp") {
 	REQUIRE(2 == moved_prop.use_count());
 }
 
-TEST_CASE("NilProp::Describer") {
+TEST_CASE("NilProp") {
 	using namespace cray;
 
 	Node node(Source::make(nullptr));
@@ -128,7 +128,7 @@ TEST_CASE("NilProp::Describer") {
 	}
 }
 
-TEST_CASE("BoolProp::Describer") {
+TEST_CASE("BoolProp") {
 	using namespace cray;
 
 	Node node_true(Source::make(true));
@@ -180,7 +180,7 @@ TEST_CASE("BoolProp::Describer") {
 	}
 }
 
-TEST_CASE("IntProp::Describer") {
+TEST_CASE("IntProp") {
 	using namespace cray;
 
 	Node node(Source::make(42));
@@ -253,7 +253,7 @@ TEST_CASE("IntProp::Describer") {
 	}
 }
 
-TEST_CASE("NumProp::Describer") {
+TEST_CASE("NumProp") {
 	using namespace cray;
 
 	Node node(Source::make(3.14));
@@ -321,7 +321,7 @@ TEST_CASE("NumProp::Describer") {
 	}
 }
 
-TEST_CASE("StrProp::Describer") {
+TEST_CASE("StrProp") {
 	using namespace cray;
 
 	Node node(Source::make("hypnos"));
@@ -382,7 +382,7 @@ TEST_CASE("PolyMapProp") {
 	REQUIRE(42 == value);
 }
 
-TEST_CASE("MapProp::Describer") {
+TEST_CASE("MapProp") {
 	using namespace cray;
 
 	Node node(Source::null());
@@ -391,7 +391,7 @@ TEST_CASE("MapProp::Describer") {
 	node.is<Type::Map>().to<Profile>() | field("age", &Profile::age);
 }
 
-TEST_CASE("MonoMapProp::Describer") {
+TEST_CASE("MonoMapProp") {
 	using namespace cray;
 
 	Node node(Source::make({std::pair{"answer", 42}}));
@@ -437,7 +437,7 @@ TEST_CASE("MonoMapProp::Describer") {
 	}
 }
 
-TEST_CASE("StructuredProp::Describer") {
+TEST_CASE("StructuredProp") {
 	using namespace cray;
 	using _ = Source::Entry::MapValueType;
 
@@ -490,7 +490,7 @@ TEST_CASE("StructuredProp::Describer") {
 	}
 }
 
-TEST_CASE("ListProp::Describer") {
+TEST_CASE("ListProp") {
 	using namespace cray;
 
 	Node node(Source::null());
@@ -498,7 +498,7 @@ TEST_CASE("ListProp::Describer") {
 	node.is<Type::List>().of(prop<Type::Int>().mutipleOf(42)).size(2 < x);
 }
 
-TEST_CASE("MonoListProp::Describer") {
+TEST_CASE("MonoListProp") {
 	using namespace cray;
 
 	Node node(Source::make({3, 5, 13, 21, 42}));

@@ -37,6 +37,9 @@ class PolyMpaProp: public Prop {
 		return false;
 	}
 
+	void encodeDefaultValueInto(Source& dst) const override {
+	}
+
 	void markRequired(Reference const& ref) override {
 		required_keys.insert(ref.key());
 	}

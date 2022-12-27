@@ -125,9 +125,9 @@ class MonoMapProp
 	OrderedSet<std::string>                      required_keys;
 
    protected:
-	void encodeTo_(Source& dst, StorageType const& value) const {
+	void encodeInto_(Source& dst, StorageType const& value) const {
 		for(auto const& [key, next_value]: value) {
-			this->next_prop->encodeTo(*this->source->next(key), next_value);
+			this->next_prop->encodeInto(*this->source->next(key), next_value);
 		}
 	}
 

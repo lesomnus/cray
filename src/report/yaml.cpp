@@ -174,6 +174,17 @@ struct ReportContext {
 			return;
 		}
 
+		std::shared_ptr<Source> source;
+		if(prop.hasDefault() && !prop.source->is(Type::List)) {
+			this->dst << "# ";
+
+			source = Source::make(nullptr);
+			prop.encodeDefaultValueInto(*source);
+			assert(source->is(Type::List));
+		} else {
+			source = prop.source;
+		}
+
 		if(isScalarType(next_prop->type())) {
 			annotate(*next_prop, [this, called = false]() mutable {
 				if(!called) {
@@ -184,9 +195,9 @@ struct ReportContext {
 
 			this->dst << "[";
 
-			std::size_t const cnt_elems = prop.source->size();
+			std::size_t const cnt_elems = source->size();
 			for(std::size_t i = 0; i < cnt_elems; ++i) {
-				next_prop->source = prop.source->next(i);
+				next_prop->source = source->next(i);
 				next_prop->ref    = i;
 				this->report(*next_prop);
 
@@ -205,12 +216,12 @@ struct ReportContext {
 
 			annotate(*next_prop, [] {});
 
-			std::size_t const cnt_elems = prop.source->size();
+			std::size_t const cnt_elems = source->size();
 			for(std::size_t i = 0; i < cnt_elems; ++i) {
 				this->tab();
 				this->dst << "- ";
 
-				next_prop->source = prop.source->next(i);
+				next_prop->source = source->next(i);
 				next_prop->ref    = i;
 				this->report(*next_prop);
 

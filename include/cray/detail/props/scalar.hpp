@@ -17,7 +17,7 @@ class ScalarProp: public CodecProp<StorageOf<T>> {
 	}
 
    protected:
-	void encodeTo_(Source& dst, StorageType const& value) const override {
+	void encodeInto_(Source& dst, StorageType const& value) const override {
 		dst.set(value);
 	}
 };

@@ -53,6 +53,8 @@ class Prop {
 
 	virtual bool hasDefault() const = 0;
 
+	virtual void encodeDefaultValueInto(Source& dst) const = 0;
+
 	virtual void markRequired(Reference const& ref) {
 		throw InvalidAccessError();
 	};
@@ -112,6 +114,10 @@ class TransitiveProp: public virtual Prop {
 	bool hasDefault() const {
 		throw InvalidAccessError();
 	}
+
+	void encodeDefaultValueInto(Source& dst) const override {
+		throw InvalidAccessError();
+	}
 };
 
 template<typename V>
@@ -129,8 +135,12 @@ class CodecProp: public virtual Prop {
 		return default_value.has_value();
 	}
 
-	inline void encodeTo(Source& dst, StorageType const& value) const {
-		this->encodeTo_(dst, value);
+	void encodeDefaultValueInto(Source& dst) const override {
+		this->encodeInto(dst, this->default_value.value());
+	}
+
+	inline void encodeInto(Source& dst, StorageType const& value) const {
+		this->encodeInto_(dst, value);
 	}
 
 	inline bool decodeFrom(Source const& src, StorageType& value) const {
@@ -147,7 +157,7 @@ class CodecProp: public virtual Prop {
 	}
 
 	inline void encode(StorageType const& value) const {
-		this->encodeTo(*this->source, value);
+		this->encodeInto(*this->source, value);
 	}
 
 	inline bool decode(StorageType& value) const {
@@ -171,7 +181,7 @@ class CodecProp: public virtual Prop {
 	std::optional<StorageType> default_value;
 
    protected:
-	virtual void encodeTo_(Source& dst, StorageType const& value) const = 0;
+	virtual void encodeInto_(Source& dst, StorageType const& value) const = 0;
 
 	virtual bool decodeFrom_(Source const& src, StorageType& value) const = 0;
 };
@@ -197,6 +207,9 @@ class RootProp: public Prop {
 
 	bool hasDefault() const override {
 		return false;
+	}
+
+	void encodeDefaultValueInto(Source& dst) const override {
 	}
 
 	void markRequired(Reference const& ref) override {
