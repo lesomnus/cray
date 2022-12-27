@@ -32,13 +32,13 @@ struct ScopedIncrement {
 };
 
 template<typename T>
-void write(std::ostream& o, Interval<T> interval) {
+void write(std::ostream& o, Interval<T> interval, std::string const& var = "x") {
 	if(interval.min.has_value()) {
 		o << interval.min->value
 		  << (interval.min->is_inclusive ? " ≤ " : " < ");
 	}
 
-	o << "x";
+	o << var;
 
 	if(interval.max.has_value()) {
 		o << (interval.max->is_inclusive ? " ≤ " : " < ")
@@ -49,11 +49,11 @@ void write(std::ostream& o, Interval<T> interval) {
 struct ReportContext {
 	void report(Prop const& prop) {
 		switch(prop.type()) {
-		case Type::Nil: return;
-		case Type::Bool: return;
-		case Type::Int: this->report(dynamic_cast<IntProp const&>(prop)); return;
-		case Type::Num: return;
-		case Type::Str: return;
+		case Type::Nil: this->reportScalarProp<Type::Nil>(prop); return;
+		case Type::Bool: this->reportScalarProp<Type::Bool>(prop); return;
+		case Type::Int: this->reportScalarProp<Type::Int>(prop); return;
+		case Type::Num: this->reportScalarProp<Type::Num>(prop); return;
+		case Type::Str: this->reportScalarProp<Type::Str>(prop); return;
 		case Type::Map: this->reportMap(prop); return;
 		case Type::List: return;
 
@@ -61,20 +61,31 @@ struct ReportContext {
 		}
 	}
 
-	void report(IntProp const& prop) {
-		auto const value = prop.opt();
+	template<Type T>
+	void reportScalarProp(Prop const& prop) {
+		if constexpr(T == Type::Nil) {
+			dst << "~";
+			return;
+		}
+
+		auto const& p     = dynamic_cast<PropOf<T> const&>(prop);
+		auto const  value = p.opt();
 		if(!value.has_value()) {
-			if(prop.isNeeded()) {
+			if(p.isNeeded()) {
 				dst << "  # ⚠️ REQUIRED";
 			}
 			return;
 		}
 
-		if(prop.default_value.has_value() && (*prop.default_value == *value)) {
+		if(p.default_value.has_value() && (*p.default_value == *value)) {
 			dst << "# ";
 		}
 
-		dst << *value;
+		if constexpr(T == Type::Bool) {
+			dst << (*value ? "true" : "false");
+		} else {
+			dst << *value;
+		}
 	}
 
 	void reportMap(Prop const& prop) {
@@ -170,21 +181,32 @@ struct ReportContext {
 
 	void annotate(Prop const& prop) {
 		annotate(prop.annotation);
+
 		switch(prop.type()) {
-		case Type::Int: annotate(dynamic_cast<IntProp const&>(prop)); return;
-
+		case Type::Nil: this->annotate(dynamic_cast<NilProp const&>(prop)); return;
+		case Type::Bool: this->annotate(dynamic_cast<BoolProp const&>(prop)); return;
+		case Type::Int: this->annotate(dynamic_cast<IntProp const&>(prop)); return;
+		case Type::Num: this->annotate(dynamic_cast<NumProp const&>(prop)); return;
+		case Type::Str: this->annotate(dynamic_cast<StrProp const&>(prop)); return;
 		case Type::Map: return;
+		case Type::List: return;
 
-		default: throw std::runtime_error("not implemented");
+		default: throw std::runtime_error("invalid type");
 		}
 	}
 
-	void annotate(IntProp const& prop) {
+	template<Type T>
+	    requires((T == Type::Int) || (T == Type::Num))
+	void annotateNumeric(NumericProp<T> const& prop) {
 		bool const has_interval = !prop.interval.isAll();
 		bool const has_divisor  = !prop.multiple_of.empty();
 		if(has_interval || has_divisor) {
 			this->tab();
-			this->dst << "# • { x ∈ Z | ";
+			if constexpr(T == Type::Int) {
+				this->dst << "# • { x ∈ Z | ";
+			} else {
+				this->dst << "# • { x ∈ Q | ";
+			}
 			if(has_interval && has_divisor) {
 				this->dst << "(";
 				write(this->dst, prop.interval);
@@ -200,6 +222,29 @@ struct ReportContext {
 				this->tab();
 				this->dst << "# • value is clamped if it is not in interval" << std::endl;
 			}
+		}
+	}
+
+	void annotate(NilProp const& prop) {
+	}
+
+	void annotate(BoolProp const& prop) {
+	}
+
+	void annotate(IntProp const& prop) {
+		this->annotateNumeric<Type::Int>(prop);
+	}
+
+	void annotate(NumProp const& prop) {
+		this->annotateNumeric<Type::Num>(prop);
+	}
+
+	void annotate(StrProp const& prop) {
+		if(!prop.length.isAll()) {
+			this->tab();
+			this->dst << "# • { |x| ∈ N | ";
+			write(this->dst, prop.length, "|x|");
+			this->dst << " }" << std::endl;
 		}
 	}
 

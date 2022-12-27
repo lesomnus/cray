@@ -83,6 +83,60 @@ TEST_CASE("Annotation") {
 	requireEq(expected, std::move(rst).str());
 }
 
+TEST_CASE("NilProp") {
+	using namespace cray;
+
+	Node node(Source::make(nullptr));
+
+	auto        describer = node.is<Type::Nil>();
+	std::string expected;
+
+	SECTION("no constraints") {
+		expected = R"(
+~
+)";
+	}
+
+	std::stringstream rst;
+	rst << std::endl;
+	report::asYaml(rst, node);
+	rst << std::endl;
+
+	requireEq(expected, std::move(rst).str());
+}
+
+TEST_CASE("BoolProp") {
+	using namespace cray;
+
+	Node        node;
+	std::string expected;
+
+	SECTION("true") {
+		node = Node(Source::make(true));
+		node.is<Type::Bool>();
+
+		expected = R"(
+true
+)";
+	}
+
+	SECTION("false") {
+		node = Node(Source::make(false));
+		node.is<Type::Bool>();
+
+		expected = R"(
+false
+)";
+	}
+
+	std::stringstream rst;
+	rst << std::endl;
+	report::asYaml(rst, node);
+	rst << std::endl;
+
+	requireEq(expected, std::move(rst).str());
+}
+
 TEST_CASE("IntProp") {
 	using namespace cray;
 
@@ -121,6 +175,86 @@ TEST_CASE("IntProp") {
 		expected = R"(
 # • { x ∈ Z | (x ≤ 42) ∧ (x / 6 ∈ Z) }
 42
+)";
+	}
+
+	std::stringstream rst;
+	rst << std::endl;
+	report::asYaml(rst, node);
+	rst << std::endl;
+
+	requireEq(expected, std::move(rst).str());
+}
+
+TEST_CASE("NumProp") {
+	using namespace cray;
+
+	Node node(Source::make(3.14));
+
+	auto        describer = node.is<Type::Num>();
+	std::string expected;
+
+	SECTION("no constraints") {
+		expected = R"(
+3.14
+)";
+	}
+
+	SECTION("interval") {
+		describer.interval(-1.2 < x <= 2.718);
+
+		expected = R"(
+# • { x ∈ Q | -1.2 < x ≤ 2.718 }
+
+)";
+	}
+
+	SECTION("multipleOf") {
+		describer.mutipleOf(0.02);
+
+		expected = R"(
+# • { x ∈ Q | x / 0.02 ∈ Z }
+3.14
+)";
+	}
+
+	SECTION("interval and multipleOf") {
+		describer.interval(x <= 3.14).mutipleOf(0.005);
+
+		expected = R"(
+# • { x ∈ Q | (x ≤ 3.14) ∧ (x / 0.005 ∈ Z) }
+3.14
+)";
+	}
+
+	std::stringstream rst;
+	rst << std::endl;
+	report::asYaml(rst, node);
+	rst << std::endl;
+
+	requireEq(expected, std::move(rst).str());
+}
+
+TEST_CASE("StrProp") {
+	using namespace cray;
+
+	Node node(Source::make("hypnos"));
+
+	auto        describer = node.is<Type::Str>();
+	std::string expected;
+
+	SECTION("no constraints") {
+		expected = R"(
+hypnos
+)";
+	}
+
+	SECTION("interval") {
+		describer.length(3 < x <= 5);
+
+		expected = R"(
+# • { |x| ∈ N | 3 < |x| ≤ 5 }
+
 )";
 	}
 
