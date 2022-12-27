@@ -6,7 +6,7 @@
 #include <limits>
 
 #include "cray/detail/interval.hpp"
-#include "cray/detail/props/scalar.hpp"
+#include "cray/detail/prop.hpp"
 #include "cray/source.hpp"
 #include "cray/types.hpp"
 
@@ -39,12 +39,12 @@ class NumericProp: public ScalarProp<T> {
    public:
 	using StorageType = StorageOf<T>;
 
-	template<typename Ctx, template<typename> typename Base>
-	class Describer: public Base<Ctx> {
+	template<typename Ctx, template<typename, bool> typename Base>
+	class Describer: public Base<Ctx, true> {
 	   public:
 		using ContextType = Ctx;
 
-		using Base<Ctx>::Base;
+		using Base<Ctx, true>::Base;
 
 		inline Describer const& defaultValue(StorageType const value) const {
 			this->prop_->default_value = value;
@@ -103,6 +103,10 @@ class NumericProp: public ScalarProp<T> {
 		return true;
 	}
 
+	void encodeDefaultValueInto(Source& dst) const override {
+		this->encodeInto(dst, this->default_value.value());
+	}
+
 	DivisibilityTest<StorageType> multiple_of;
 	Interval<StorageType>         interval;
 	bool                          with_clamp = false;
@@ -127,6 +131,57 @@ class NumericProp: public ScalarProp<T> {
 
 		return true;
 	}
+};
+
+template<typename V>
+class BasicNumericProp
+    : public CodecProp<V>
+    , public NumericProp<TypeFor<V>> {
+   public:
+	using NumericProp<TypeFor<V>>::NumericProp;
+
+	std::string name() const override {
+		return NumericProp<TypeFor<V>>::name();
+	}
+
+	bool hasDefault() const override {
+		return NumericProp<TypeFor<V>>::hasDefault();
+	}
+
+	void encodeDefaultValueInto(Source& dst) const override {
+		NumericProp<TypeFor<V>>::encodeDefaultValueInto(dst);
+	}
+
+	using CodecProp<V>::opt;
+	using CodecProp<V>::get;
+
+   protected:
+	void encodeInto_(Source& dst, V const& value) const override {
+		auto const v = static_cast<StorageOf<TypeFor<V>>>(value);
+
+		dst.set(v);
+	}
+
+	bool decodeFrom_(Source const& src, V& value) const override {
+		StorageOf<TypeFor<V>> v;
+
+		bool const ok = NumericProp<TypeFor<V>>::decodeFrom_(src, v);
+
+		value = static_cast<V>(v);
+		return ok;
+	}
+};
+
+template<>
+class BasicNumericProp<StorageOf<Type::Int>>: public NumericProp<Type::Int> {
+   public:
+	using NumericProp<Type::Int>::NumericProp;
+};
+
+template<>
+class BasicNumericProp<StorageOf<Type::Num>>: public NumericProp<Type::Num> {
+   public:
+	using NumericProp<Type::Num>::NumericProp;
 };
 
 }  // namespace detail

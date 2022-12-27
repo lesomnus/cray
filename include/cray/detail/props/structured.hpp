@@ -20,34 +20,36 @@ struct FieldContext {
 	using MappedType = M;
 };
 
-template<typename M, typename V, typename P = PropFor<V>>
+template<typename M, typename V>
 class FieldProp
     : public CodecProp<M>
-    , public P {
+    , public PropFor<V> {
    public:
-	using MappedType   = M;
-	using StorageType  = V;
-	using ReceiverType = std::conditional_t<std::is_same_v<StorageType, typename P::StorageType>, StorageType&, typename P::StorageType>;
+	using MappedType  = M;
+	using StorageType = V;
+
+	using BasePropType    = PropFor<V>;
+	using BaseStorageType = typename PropFor<V>::StorageType;
 
 	FieldProp(Annotation annotation, std::string name, StorageType MappedType::*member)
 	    : Prop(std::move(annotation), std::weak_ptr<Prop>(), std::move(name))
 	    , member(member) { }
 
 	std::string name() const override {
-		return P::name();
+		return BasePropType::name();
 	}
 
 	bool hasDefault() const override {
-		return P::hasDefault();
+		return BasePropType::hasDefault();
 	}
 
 	void encodeDefaultValueInto(Source& dst) const override {
-		return P::encodeDefaultValueInto(dst);
+		return BasePropType::encodeDefaultValueInto(dst);
 	}
 
 	void makeRequired() const override {
 		if constexpr(!IsOptional<V>) {
-			P::makeRequired();
+			BasePropType::makeRequired();
 		}
 	};
 
@@ -57,19 +59,18 @@ class FieldProp
 	void encodeInto_(Source& dst, MappedType const& value) const override {
 		auto next = dst.next(this->ref);
 
+		BaseStorageType v;
 		if constexpr(IsOptional<V>) {
 			if(value.*this->member) {
-				typename P::StorageType const v = *(value.*this->member);
-				P::encodeInto(*next, v);
+				v = *(value.*this->member);
+			} else {
+				return;
 			}
 		} else {
-			if constexpr(std::is_same_v<StorageType, typename P::StorageType>) {
-				P::encodeInto(*next, value.*this->member);
-			} else {
-				typename P::StorageType const v = value.*this->member;
-				P::encodeInto(*next, v);
-			}
+			v = value.*this->member;
 		}
+
+		CodecProp<BaseStorageType>::encodeInto(*next, v);
 	}
 
 	bool decodeFrom_(Source const& src, MappedType& value) const override {
@@ -78,16 +79,16 @@ class FieldProp
 			return false;
 		}
 
-		if constexpr(std::is_same_v<ReceiverType, StorageType>) {
-			return P::decodeFrom(*next, value.*this->member);
-		} else {
-			std::remove_reference_t<ReceiverType> v;
-			if(!P::decodeFrom(*next, v)) {
+		if constexpr(IsOptional<V>) {
+			BaseStorageType v;
+			if(CodecProp<BaseStorageType>::decodeFrom(*next, v)) {
+				value.*this->member = v;
+				return true;
+			} else {
 				return false;
 			}
-
-			value.*this->member = static_cast<StorageType>(v);
-			return true;
+		} else {
+			return CodecProp<BaseStorageType>::decodeFrom(*next, value.*this->member);
 		}
 	}
 };

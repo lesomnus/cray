@@ -10,67 +10,69 @@
 namespace cray {
 namespace detail {
 
-class IntProp: public NumericProp<Type::Int> {
+template<std::integral V>
+class BasicIntProp: public BasicNumericProp<V> {
    public:
-	template<typename Ctx>
-	class DescriberBase;
+	using StorageType = V;
+
+	template<typename Ctx, bool = true>
+	class DescriberBase: public detail::Describer<BasicIntProp<V>> {
+	   public:
+		using detail::Describer<BasicIntProp<V>>::Describer;
+	};
+
+	template<bool Dummy>
+	class DescriberBase<GettableContext, Dummy>: public detail::Describer<BasicIntProp<V>> {
+	   public:
+		using detail::Describer<BasicIntProp<V>>::Describer;
+
+		inline std::optional<StorageType> opt() const {
+			return this->prop_->opt();
+		}
+
+		inline StorageType get() const {
+			return this->prop_->get();
+		}
+
+		// clang-format off
+		inline operator short()     const { return this->get_<short    >(); }
+		inline operator int()       const { return this->get_<int      >(); }
+		inline operator long()      const { return this->get_<long     >(); }
+		inline operator long long() const { return this->get_<long long>(); }
+
+		inline operator unsigned short()     const { return this->get_<unsigned short    >(); }
+		inline operator unsigned()           const { return this->get_<unsigned int      >(); }
+		inline operator unsigned long()      const { return this->get_<unsigned long     >(); }
+		inline operator unsigned long long() const { return this->get_<unsigned long long>(); }
+		// clang-format on
+
+	   private:
+		template<typename V_>
+		inline V_ get_() const {
+			return static_cast<V_>(this->prop_->get());
+		}
+	};
 
 	template<typename Ctx>
 	using Describer = NumericProp<Type::Int>::Describer<Ctx, DescriberBase>;
 
-	using NumericProp<Type::Int>::NumericProp;
+	using BasicNumericProp<V>::BasicNumericProp;
 
 	std::string name() const override {
 		return "Integer";
 	}
 };
 
+using IntProp = BasicIntProp<StorageOf<Type::Int>>;
+
 template<>
 struct PropOf_<Type::Int> {
 	using type = IntProp;
 };
 
-template<std::integral T>
-struct PropFor_<T> {
-	using type = IntProp;
-};
-
-template<typename Ctx>
-class IntProp::DescriberBase: public detail::Describer<IntProp> {
-   public:
-	using detail::Describer<IntProp>::Describer;
-};
-
-template<>
-class IntProp::DescriberBase<GettableContext>: public detail::Describer<IntProp> {
-   public:
-	using detail::Describer<IntProp>::Describer;
-
-	inline std::optional<StorageType> opt() const {
-		return this->prop_->opt();
-	}
-
-	inline StorageType get() const {
-		return this->prop_->get();
-	}
-
-	// clang-format off
-	inline operator short()     const { return this->get_<short    >(); }
-	inline operator int()       const { return this->get_<int      >(); }
-	inline operator long()      const { return this->get_<long     >(); }
-	inline operator long long() const { return this->get_<long long>(); }
-
-	inline operator unsigned short()     const { return this->get_<unsigned short    >(); }
-	inline operator unsigned()           const { return this->get_<unsigned          >(); }
-	inline operator unsigned long()      const { return this->get_<unsigned long     >(); }
-	inline operator unsigned long long() const { return this->get_<unsigned long long>(); }
-	// clang-format on
-
-   private:
-	template<typename T>
-	inline T get_() const {
-		return static_cast<T>(this->prop_->get());
-	}
+template<std::integral V>
+struct PropFor_<V> {
+	using type = BasicIntProp<V>;
 };
 
 }  // namespace detail

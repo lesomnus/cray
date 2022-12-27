@@ -93,18 +93,18 @@ TEST_CASE("PropFor") {
 	STATIC_REQUIRE(std::is_same_v<NilProp, PropFor<std::nullptr_t>>);
 	STATIC_REQUIRE(std::is_same_v<BoolProp, PropFor<bool>>);
 
-	STATIC_REQUIRE(std::is_same_v<IntProp, PropFor<short>>);
-	STATIC_REQUIRE(std::is_same_v<IntProp, PropFor<int>>);
-	STATIC_REQUIRE(std::is_same_v<IntProp, PropFor<long>>);
-	STATIC_REQUIRE(std::is_same_v<IntProp, PropFor<long long>>);
-	STATIC_REQUIRE(std::is_same_v<IntProp, PropFor<unsigned short>>);
-	STATIC_REQUIRE(std::is_same_v<IntProp, PropFor<unsigned>>);
-	STATIC_REQUIRE(std::is_same_v<IntProp, PropFor<unsigned long>>);
-	STATIC_REQUIRE(std::is_same_v<IntProp, PropFor<unsigned long long>>);
+	STATIC_REQUIRE(std::is_same_v<BasicIntProp<short>, PropFor<short>>);
+	STATIC_REQUIRE(std::is_same_v<BasicIntProp<int>, PropFor<int>>);
+	STATIC_REQUIRE(std::is_same_v<BasicIntProp<long>, PropFor<long>>);
+	STATIC_REQUIRE(std::is_same_v<BasicIntProp<long long>, PropFor<long long>>);
+	STATIC_REQUIRE(std::is_same_v<BasicIntProp<unsigned short>, PropFor<unsigned short>>);
+	STATIC_REQUIRE(std::is_same_v<BasicIntProp<unsigned int>, PropFor<unsigned int>>);
+	STATIC_REQUIRE(std::is_same_v<BasicIntProp<unsigned long>, PropFor<unsigned long>>);
+	STATIC_REQUIRE(std::is_same_v<BasicIntProp<unsigned long long>, PropFor<unsigned long long>>);
 
-	STATIC_REQUIRE(std::is_same_v<NumProp, PropFor<float>>);
-	STATIC_REQUIRE(std::is_same_v<NumProp, PropFor<double>>);
-	STATIC_REQUIRE(std::is_same_v<NumProp, PropFor<long double>>);
+	STATIC_REQUIRE(std::is_same_v<BasicNumProp<float>, PropFor<float>>);
+	STATIC_REQUIRE(std::is_same_v<BasicNumProp<double>, PropFor<double>>);
+	STATIC_REQUIRE(std::is_same_v<BasicNumProp<long double>, PropFor<long double>>);
 
 	STATIC_REQUIRE(std::is_same_v<StrProp, PropFor<std::string>>);
 

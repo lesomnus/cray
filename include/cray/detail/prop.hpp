@@ -127,7 +127,7 @@ class CodecProp: public virtual Prop {
 
 	using Prop::Prop;
 
-	virtual std::string name() const {
+	std::string name() const override {
 		return "unnamed Codec";
 	}
 
@@ -245,7 +245,7 @@ struct PropFor_;
 
 template<typename T>
 struct PropFor_<std::optional<T>> {
-	using type = PropOf<TypeFor<T>>;
+	using type = PropFor_<T>::type;
 };
 
 template<typename T>

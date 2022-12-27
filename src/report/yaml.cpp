@@ -68,7 +68,7 @@ struct ReportContext {
 			return;
 		}
 
-		auto const& p     = dynamic_cast<PropOf<T> const&>(prop);
+		auto const& p     = dynamic_cast<CodecProp<StorageOf<T>> const&>(prop);
 		auto const  value = p.opt();
 		if(!value.has_value()) {
 			if(p.isNeeded()) {
@@ -261,8 +261,8 @@ struct ReportContext {
 		switch(prop.type()) {
 		case Type::Nil: this->annotate(dynamic_cast<NilProp const&>(prop), on_annotate); return;
 		case Type::Bool: this->annotate(dynamic_cast<BoolProp const&>(prop), on_annotate); return;
-		case Type::Int: this->annotate(dynamic_cast<IntProp const&>(prop), on_annotate); return;
-		case Type::Num: this->annotate(dynamic_cast<NumProp const&>(prop), on_annotate); return;
+		case Type::Int: this->annotateNumeric(dynamic_cast<NumericProp<Type::Int> const&>(prop), on_annotate); return;
+		case Type::Num: this->annotateNumeric(dynamic_cast<NumericProp<Type::Num> const&>(prop), on_annotate); return;
 		case Type::Str: this->annotate(dynamic_cast<StrProp const&>(prop), on_annotate); return;
 		case Type::Map: return;
 		case Type::List: this->annotateList(prop, on_annotate); return;
@@ -306,14 +306,6 @@ struct ReportContext {
 	}
 
 	void annotate(BoolProp const& prop, std::function<void()> const& on_annotate) {
-	}
-
-	void annotate(IntProp const& prop, std::function<void()> const& on_annotate) {
-		this->annotateNumeric<Type::Int>(prop, on_annotate);
-	}
-
-	void annotate(NumProp const& prop, std::function<void()> const& on_annotate) {
-		this->annotateNumeric<Type::Num>(prop, on_annotate);
 	}
 
 	void annotate(StrProp const& prop, std::function<void()> const& on_annotate) {
