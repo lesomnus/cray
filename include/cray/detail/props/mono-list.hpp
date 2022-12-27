@@ -10,8 +10,15 @@
 namespace cray {
 namespace detail {
 
+class MonoListAccessor {
+   public:
+	virtual Interval<std::size_t> const& getSize() const = 0;
+};
+
 template<typename V, std::derived_from<CodecProp<V>> P>
-class MonoListProp: public CodecProp<std::vector<V>> {
+class MonoListProp
+    : public CodecProp<std::vector<V>>
+    , public MonoListAccessor {
    public:
 	using StorageType      = std::vector<V>;
 	using ChildPropType    = P;
@@ -75,7 +82,7 @@ class MonoListProp: public CodecProp<std::vector<V>> {
 	}
 
 	std::string name() const override {
-		return "List<" + this->next->name() + ">";
+		return "List<" + this->next_prop->name() + ">";
 	}
 
 	bool ok() const override {
@@ -95,17 +102,21 @@ class MonoListProp: public CodecProp<std::vector<V>> {
 	}
 
 	std::shared_ptr<Prop> at(Reference const& ref) const override {
-		return this->next;
+		return this->next_prop;
 	}
 
-	std::shared_ptr<CodecProp<ChildStorageType>> next;
+	Interval<std::size_t> const& getSize() const override {
+		return this->size;
+	}
+
+	std::shared_ptr<CodecProp<ChildStorageType>> next_prop;
 
 	Interval<std::size_t> size;
 
    protected:
 	void encodeTo_(Source& dst, StorageType const& value) const {
 		for(std::size_t index = 0; index < value.size(); ++index) {
-			this->next->encodeTo(*this->source->next(index), value.at(index));
+			this->next_prop->encodeTo(*this->source->next(index), value.at(index));
 		}
 	}
 
@@ -121,7 +132,7 @@ class MonoListProp: public CodecProp<std::vector<V>> {
 
 		value.resize(size);
 		for(std::size_t index = 0; index < size; ++index) {
-			auto const ok = this->next->decodeFrom(*this->source->next(index), value.at(index));
+			auto const ok = this->next_prop->decodeFrom(*this->source->next(index), value.at(index));
 			if(!ok) {
 				return false;
 			}

@@ -253,7 +253,7 @@ hypnos
 		describer.length(3 < x <= 5);
 
 		expected = R"(
-# • { |x| ∈ N | 3 < |x| ≤ 5 }
+# • { |x| ∈ W | 3 < |x| ≤ 5 }
 
 )";
 	}
@@ -372,6 +372,63 @@ b:   # ⚠️ REQUIRED
 a: 
 )";
 	}
+
+	std::stringstream rst;
+	rst << std::endl;
+	report::asYaml(rst, node);
+	rst << std::endl;
+
+	requireEq(expected, std::move(rst).str());
+}
+
+TEST_CASE("MonoListProp") {
+	using namespace cray;
+
+	Node node(Source::make({2, 3, 5}));
+
+	auto        describer = node.is<Type::List>().of<Type::Int>();
+	std::string expected;
+
+	SECTION("no constraints") {
+		expected = R"(
+[2, 3, 5]
+)";
+	}
+
+	SECTION("size") {
+		describer.size(2 < x <= 5);
+
+		expected = R"(
+# • { |x| ∈ W | 2 < |x| ≤ 5 }
+[2, 3, 5]
+)";
+	}
+
+	SECTION("nested") {
+		node = Node(Source::make({
+		    {1, 2, 3},
+		    {4, 5, 6},
+		    {7, 8, 9},
+		}));
+		node.is<Type::List>().of(prop<Type::List>().of<Type::Int>());
+
+		expected = R"(
+- [1, 2, 3]
+- [4, 5, 6]
+- [7, 8, 9]
+)";
+	}
+
+	// 	SECTION("annotation on next level") {
+	// 		auto describer_next = prop<Type::Int>();
+
+	// 		node.is<Type::Map>().of(prop<Type::Int>(Annotation{.title = "Counts"}).interval(3 < x));
+	// 		expected = R"(
+	// # Counts
+	// # • { x ∈ Z | 3 < x }
+	// a:
+	// )";
+	// 	}
 
 	std::stringstream rst;
 	rst << std::endl;

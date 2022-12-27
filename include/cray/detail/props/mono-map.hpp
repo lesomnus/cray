@@ -19,7 +19,7 @@ namespace detail {
 
 class MonoMapPropAccessor {
    public:
-	virtual OrderedSet<std::string> const& requiredKeys() const = 0;
+	virtual OrderedSet<std::string> const& getRequiredKeys() const = 0;
 };
 
 template<typename V, std::derived_from<CodecProp<V>> P>
@@ -117,7 +117,7 @@ class MonoMapProp
 		return this->next_prop;
 	}
 
-	OrderedSet<std::string> const& requiredKeys() const override {
+	OrderedSet<std::string> const& getRequiredKeys() const override {
 		return required_keys;
 	}
 

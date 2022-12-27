@@ -295,10 +295,10 @@ using DescriberOf = typename P::template Describer<Ctx>;
  */
 template<std::derived_from<Prop> P>
 std::shared_ptr<P> makeProp(Annotation annotation, std::shared_ptr<Prop> const& prev, Reference ref) {
-	assert(prev != nullptr);
-
 	auto curr = std::make_shared<P>(std::move(annotation), prev, std::move(ref));
-	prev->assign(curr->ref, curr);
+	if(prev) {
+		prev->assign(curr->ref, curr);
+	}
 
 	return curr;
 }

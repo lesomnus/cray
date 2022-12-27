@@ -55,7 +55,7 @@ struct ReportContext {
 		case Type::Num: this->reportScalarProp<Type::Num>(prop); return;
 		case Type::Str: this->reportScalarProp<Type::Str>(prop); return;
 		case Type::Map: this->reportMap(prop); return;
-		case Type::List: return;
+		case Type::List: this->reportList(prop); return;
 
 		default: throw std::runtime_error("invalid type");
 		}
@@ -106,7 +106,7 @@ struct ReportContext {
 	void report(PolyMpaProp const& prop) {
 		auto i = prop.next_props.size();
 		for(auto const& [key, next_prop]: prop.next_props) {
-			annotate(*next_prop);
+			annotate(*next_prop, [] {});
 			this->tab();
 			this->dst << key << ": ";
 			this->report(*next_prop);
@@ -123,12 +123,12 @@ struct ReportContext {
 			return;
 		}
 
-		annotate(*next_prop);
+		annotate(*next_prop, [] {});
 
 		// Check required fields
 		{
 			auto const& accessor      = dynamic_cast<MonoMapPropAccessor const&>(prop);
-			auto const& required_keys = accessor.requiredKeys();
+			auto const& required_keys = accessor.getRequiredKeys();
 
 			auto cnt_remain_required_keys = required_keys.size();
 			if(prop.source->size() > 0) {
@@ -145,10 +145,11 @@ struct ReportContext {
 			}
 		}
 
-		auto cnt_remain = prop.source->size();
+		std::size_t cnt_remain = prop.source->size();
 		prop.source->keys([&](std::string const& key) {
 			this->tab();
 			this->dst << key << ": ";
+
 			next_prop->source = prop.source->next(key);
 			next_prop->ref    = key;
 			this->report(*next_prop);
@@ -161,35 +162,99 @@ struct ReportContext {
 		});
 	}
 
-	void annotate(Annotation const& annotation) {
+	void reportList(Prop const& prop) {
+		auto i = ScopedIncrement(this->level);
+
+		reportMonoList(prop);
+	}
+
+	void reportMonoList(Prop const& prop) {
+		auto const next_prop = prop.at(Reference());
+		if(next_prop == nullptr) {
+			return;
+		}
+
+		if(isScalarType(next_prop->type())) {
+			annotate(*next_prop, [this, called = false]() mutable {
+				if(!called) {
+					called = true;
+					this->dst << std::endl;
+				}
+			});
+
+			this->dst << "[";
+
+			std::size_t const cnt_elems = prop.source->size();
+			for(std::size_t i = 0; i < cnt_elems; ++i) {
+				next_prop->source = prop.source->next(i);
+				next_prop->ref    = i;
+				this->report(*next_prop);
+
+				if(i == (cnt_elems - 1)) {
+					break;
+				}
+
+				this->dst << ", ";
+			}
+
+			this->dst << "]";
+		} else {
+			if(this->level > 0) {
+				this->dst << std::endl;
+			}
+
+			annotate(*next_prop, [] {});
+
+			std::size_t const cnt_elems = prop.source->size();
+			for(std::size_t i = 0; i < cnt_elems; ++i) {
+				this->tab();
+				this->dst << "- ";
+
+				next_prop->source = prop.source->next(i);
+				next_prop->ref    = i;
+				this->report(*next_prop);
+
+				if(i == (cnt_elems - 1)) {
+					break;
+				}
+
+				this->dst << std::endl;
+			}
+		}
+	}
+
+	void annotate(Annotation const& annotation, std::function<void()> const& on_annotate) {
 		if(!annotation.title.empty()) {
+			on_annotate();
 			this->tab();
 			this->dst << "# " << annotation.title << std::endl;
 		}
 
 		if(annotation.is_deprecated) {
+			on_annotate();
 			this->tab();
 			this->dst << "# ⚠️ DEPRECATED" << std::endl;
 		}
 
 		if(!annotation.description.empty()) {
+			on_annotate();
 			// TODO: handle multiline.
 			this->tab();
 			this->dst << "# | " << annotation.description << std::endl;
 		}
 	}
 
-	void annotate(Prop const& prop) {
-		annotate(prop.annotation);
+	void annotate(Prop const& prop, std::function<void()> const& on_annotate) {
+		annotate(prop.annotation, on_annotate);
 
 		switch(prop.type()) {
-		case Type::Nil: this->annotate(dynamic_cast<NilProp const&>(prop)); return;
-		case Type::Bool: this->annotate(dynamic_cast<BoolProp const&>(prop)); return;
-		case Type::Int: this->annotate(dynamic_cast<IntProp const&>(prop)); return;
-		case Type::Num: this->annotate(dynamic_cast<NumProp const&>(prop)); return;
-		case Type::Str: this->annotate(dynamic_cast<StrProp const&>(prop)); return;
+		case Type::Nil: this->annotate(dynamic_cast<NilProp const&>(prop), on_annotate); return;
+		case Type::Bool: this->annotate(dynamic_cast<BoolProp const&>(prop), on_annotate); return;
+		case Type::Int: this->annotate(dynamic_cast<IntProp const&>(prop), on_annotate); return;
+		case Type::Num: this->annotate(dynamic_cast<NumProp const&>(prop), on_annotate); return;
+		case Type::Str: this->annotate(dynamic_cast<StrProp const&>(prop), on_annotate); return;
 		case Type::Map: return;
-		case Type::List: return;
+		case Type::List: this->annotateList(prop, on_annotate); return;
 
 		default: throw std::runtime_error("invalid type");
 		}
@@ -197,10 +262,11 @@ struct ReportContext {
 
 	template<Type T>
 	    requires((T == Type::Int) || (T == Type::Num))
-	void annotateNumeric(NumericProp<T> const& prop) {
+	void annotateNumeric(NumericProp<T> const& prop, std::function<void()> const& on_annotate) {
 		bool const has_interval = !prop.interval.isAll();
 		bool const has_divisor  = !prop.multiple_of.empty();
 		if(has_interval || has_divisor) {
+			on_annotate();
 			this->tab();
 			if constexpr(T == Type::Int) {
 				this->dst << "# • { x ∈ Z | ";
@@ -225,25 +291,45 @@ struct ReportContext {
 		}
 	}
 
-	void annotate(NilProp const& prop) {
+	void annotate(NilProp const& prop, std::function<void()> const& on_annotate) {
 	}
 
-	void annotate(BoolProp const& prop) {
+	void annotate(BoolProp const& prop, std::function<void()> const& on_annotate) {
 	}
 
-	void annotate(IntProp const& prop) {
-		this->annotateNumeric<Type::Int>(prop);
+	void annotate(IntProp const& prop, std::function<void()> const& on_annotate) {
+		this->annotateNumeric<Type::Int>(prop, on_annotate);
 	}
 
-	void annotate(NumProp const& prop) {
-		this->annotateNumeric<Type::Num>(prop);
+	void annotate(NumProp const& prop, std::function<void()> const& on_annotate) {
+		this->annotateNumeric<Type::Num>(prop, on_annotate);
 	}
 
-	void annotate(StrProp const& prop) {
+	void annotate(StrProp const& prop, std::function<void()> const& on_annotate) {
 		if(!prop.length.isAll()) {
+			on_annotate();
 			this->tab();
-			this->dst << "# • { |x| ∈ N | ";
+			this->dst << "# • { |x| ∈ W | ";
 			write(this->dst, prop.length, "|x|");
+			this->dst << " }" << std::endl;
+		}
+	}
+
+	void annotateList(Prop const& prop, std::function<void()> const& on_annotate) {
+		if(auto const* p = dynamic_cast<MonoListAccessor const*>(&prop); p != nullptr) {
+			annotateMonoList(prop, on_annotate);
+		} else {
+			throw std::runtime_error("not implemented");
+		}
+	}
+
+	void annotateMonoList(Prop const& prop, std::function<void()> const& on_annotate) {
+		auto const& accessor = dynamic_cast<MonoListAccessor const&>(prop);
+		if(auto const& size = accessor.getSize(); !size.isAll()) {
+			on_annotate();
+			this->tab();
+			this->dst << "# • { |x| ∈ W | ";
+			write(this->dst, size, "|x|");
 			this->dst << " }" << std::endl;
 		}
 	}
@@ -277,7 +363,7 @@ class YamlReporter: public Reporter {
    protected:
 	void report_(std::ostream& dst, detail::Prop const& prop) const override {
 		auto ctx = detail::ReportContext{.dst = dst};
-		ctx.annotate(prop);
+		ctx.annotate(prop, [] {});
 		ctx.report(prop);
 	}
 };

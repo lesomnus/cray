@@ -68,6 +68,20 @@ constexpr bool IsOptional = IsOptional_<T>::value;
 template<Type T>
 constexpr bool IsScalarType = detail::IsScalarType_<T>::value;
 
+constexpr bool isScalarType(Type type) {
+	switch(type) {
+	case Type::Nil:
+	case Type::Bool:
+	case Type::Int:
+	case Type::Num:
+	case Type::Str:
+		return true;
+
+	default:
+		return false;
+	}
+}
+
 template<Type T>
 using StorageOf = detail::StorageOf_<T>::type;
 

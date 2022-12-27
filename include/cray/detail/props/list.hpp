@@ -24,11 +24,12 @@ class ListProp: public TransitiveProp {
 		auto of(Annotation annotation, D describer) const {
 			using P = MonoListPropOf<Next>;
 
-			auto const prev = this->prop_->prev.lock();
-			assert(prev != nullptr);
+			auto prev     = this->prop_->prev.lock();
+			auto new_curr = makeProp<P>(std::move(annotation), std::move(prev), this->prop_->ref);
 
-			auto new_curr  = makeProp<P>(std::move(annotation), prev, this->prop_->ref);
-			new_curr->next = getProp(std::move(describer));
+			auto next_prop      = getProp(std::move(describer));
+			next_prop->prev     = new_curr;
+			new_curr->next_prop = std::move(next_prop);
 
 			return DescriberOf<P, Ctx>(std::move(new_curr));
 		}
@@ -39,11 +40,13 @@ class ListProp: public TransitiveProp {
 		}
 
 		template<Type T>
+		    requires IsScalarType<T>
 		inline auto of(Annotation annotation) const {
 			return this->of(std::move(annotation), prop<T>());
 		}
 
 		template<Type T>
+		    requires IsScalarType<T>
 		inline auto of() const {
 			return this->of(Annotation{}, prop<T>());
 		}
