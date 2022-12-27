@@ -27,6 +27,55 @@ bool be(T answer, U const& convertible) {
 	return answer == static_cast<T>(convertible);
 }
 
+template<cray::Type T>
+void scalarCodecPropTest(cray::StorageOf<T> const default_value) {
+	using namespace cray;
+
+	SECTION("::defaultValue") {
+		Node null_node(Source::null());
+		null_node.is<T>().get();
+		REQUIRE(!null_node.ok());
+
+		auto value = null_node.is<T>() || default_value;
+		REQUIRE(default_value == value);
+		REQUIRE(null_node.ok());
+	}
+
+	SECTION("::encodeDefaultValueInto") {
+		auto source = Source::make({1, 2, 3});
+		REQUIRE(!source->is(T));
+
+		auto p = detail::getProp(prop<T>() || default_value);
+		p->encodeDefaultValueInto(*source);
+		REQUIRE(source->is(T));
+
+		StorageOf<T> v;
+		REQUIRE(source->get(v));
+		REQUIRE(default_value == v);
+	}
+
+	SECTION("::opt") {
+		Node null_node(Source::null());
+
+		REQUIRE(!null_node.is<T>().opt().has_value());
+		REQUIRE(null_node.ok());
+
+		REQUIRE(default_value == null_node.is<T>().defaultValue(default_value).opt().value());
+	}
+
+	SECTION("::get") {
+		Node node(Source::make(default_value));
+		REQUIRE(default_value == node.is<T>().get());
+
+		Node null_node(Source::null());
+		null_node.is<T>();
+		REQUIRE(null_node.ok());
+
+		null_node.is<T>().get();
+		REQUIRE(!null_node.ok());
+	}
+}
+
 TEST_CASE("PropOf") {
 	using namespace cray;
 	using namespace cray::detail;
@@ -92,34 +141,8 @@ TEST_CASE("NilProp") {
 
 	Node node(Source::make(nullptr));
 
-	SECTION("::defaultValue") {
-		Node null_node(Source::null());
-		null_node.is<Type::Nil>().get();
-		REQUIRE(!null_node.ok());
-
-		auto value = null_node.is<Type::Nil>() || nullptr;
-		REQUIRE(nullptr == value);
-		REQUIRE(null_node.ok());
-	}
-
-	SECTION("::opt") {
-		Node null_node(Source::null());
-
-		REQUIRE(!null_node.is<Type::Nil>().opt().has_value());
-		REQUIRE(null_node.ok());
-
-		REQUIRE(nullptr == null_node.is<Type::Nil>().defaultValue(nullptr).opt().value());
-	}
-
-	SECTION("::get") {
-		REQUIRE(nullptr == node.is<Type::Nil>().get());
-
-		Node null_node(Source::null());
-		null_node.is<Type::Nil>();
-		REQUIRE(null_node.ok());
-
-		null_node.is<Type::Nil>().get();
-		REQUIRE(!null_node.ok());
+	SECTION("CodecProp<Type::Nil>") {
+		scalarCodecPropTest<Type::Nil>(nullptr);
 	}
 
 	SECTION("::operator T") {
@@ -134,44 +157,9 @@ TEST_CASE("BoolProp") {
 	Node node_true(Source::make(true));
 	Node node_false(Source::make(false));
 
-	SECTION("::defaultValue") {
-		Node null_node(Source::null());
-		null_node.is<Type::Bool>().get();
-		REQUIRE(!null_node.ok());
-
-		{
-			auto value = null_node.is<Type::Bool>() || true;
-			REQUIRE(true == value);
-			REQUIRE(null_node.ok());
-		}
-
-		{
-			auto value = null_node.is<Type::Bool>() || false;
-			REQUIRE(false == value);
-			REQUIRE(null_node.ok());
-		}
-	}
-
-	SECTION("::opt") {
-		Node null_node(Source::null());
-
-		REQUIRE(!null_node.is<Type::Bool>().opt().has_value());
-		REQUIRE(null_node.ok());
-
-		REQUIRE(true == null_node.is<Type::Bool>().defaultValue(true).opt().value());
-		REQUIRE(false == null_node.is<Type::Bool>().defaultValue(false).opt().value());
-	}
-
-	SECTION("::get") {
-		REQUIRE(true == node_true.is<Type::Bool>().get());
-		REQUIRE(false == node_false.is<Type::Bool>().get());
-
-		Node null_node(Source::null());
-		null_node.is<Type::Bool>();
-		REQUIRE(null_node.ok());
-
-		null_node.is<Type::Bool>().get();
-		REQUIRE(!null_node.ok());
+	SECTION("CodecProp<Type::Bool>") {
+		scalarCodecPropTest<Type::Bool>(true);
+		scalarCodecPropTest<Type::Bool>(false);
 	}
 
 	SECTION("::operator T") {
@@ -185,14 +173,8 @@ TEST_CASE("IntProp") {
 
 	Node node(Source::make(42));
 
-	SECTION("::defaultValue") {
-		Node null_node(Source::null());
-		null_node.is<Type::Int>().get();
-		REQUIRE(!null_node.ok());
-
-		auto value = null_node.is<Type::Int>() || 42;
-		REQUIRE(42 == value);
-		REQUIRE(null_node.ok());
+	SECTION("CodecProp<Type::Int>") {
+		scalarCodecPropTest<Type::Int>(42);
 	}
 
 	SECTION("::multipleOf") {
@@ -220,26 +202,6 @@ TEST_CASE("IntProp") {
 		REQUIRE(13 > static_cast<int>(desc));
 	}
 
-	SECTION("::opt") {
-		Node null_node(Source::null());
-
-		REQUIRE(!null_node.is<Type::Int>().opt().has_value());
-		REQUIRE(null_node.ok());
-
-		REQUIRE(42 == null_node.is<Type::Int>().defaultValue(42).opt().value());
-	}
-
-	SECTION("::get") {
-		REQUIRE(42 == node.is<Type::Int>().get());
-
-		Node null_node(Source::null());
-		null_node.is<Type::Int>();
-		REQUIRE(null_node.ok());
-
-		null_node.is<Type::Int>().get();
-		REQUIRE(!null_node.ok());
-	}
-
 	SECTION("::operator T") {
 		auto desc = node.is<Type::Int>();
 		REQUIRE(be<short>(42, desc));
@@ -258,14 +220,8 @@ TEST_CASE("NumProp") {
 
 	Node node(Source::make(3.14));
 
-	SECTION("::defaultValue") {
-		Node null_node(Source::null());
-		null_node.is<Type::Num>().get();
-		REQUIRE(!null_node.ok());
-
-		auto value = null_node.is<Type::Num>() || 3.14;
-		REQUIRE(3.14 == value);
-		REQUIRE(null_node.ok());
+	SECTION("CodecProp<Type::Num>") {
+		scalarCodecPropTest<Type::Num>(3.14);
 	}
 
 	SECTION("::multipleOf") {
@@ -293,26 +249,6 @@ TEST_CASE("NumProp") {
 		REQUIRE(2.718 > static_cast<double>(desc));
 	}
 
-	SECTION("::opt") {
-		Node null_node(Source::null());
-
-		REQUIRE(!null_node.is<Type::Num>().opt().has_value());
-		REQUIRE(null_node.ok());
-
-		REQUIRE(3.14 == null_node.is<Type::Num>().defaultValue(3.14).opt().value());
-	}
-
-	SECTION("::get") {
-		REQUIRE(3.14 == node.is<Type::Num>().get());
-
-		Node null_node(Source::null());
-		null_node.is<Type::Num>();
-		REQUIRE(null_node.ok());
-
-		null_node.is<Type::Num>().get();
-		REQUIRE(!null_node.ok());
-	}
-
 	SECTION("::operator T") {
 		auto desc = node.is<Type::Num>();
 		REQUIRE(be<float>(3.14, desc));
@@ -326,14 +262,8 @@ TEST_CASE("StrProp") {
 
 	Node node(Source::make("hypnos"));
 
-	SECTION("::defaultValue") {
-		Node null_node(Source::null());
-		null_node.is<Type::Str>().get();
-		REQUIRE(!null_node.ok());
-
-		auto value = null_node.is<Type::Str>() || "hypnos";
-		REQUIRE("hypnos" == value);
-		REQUIRE(null_node.ok());
+	SECTION("CodecProp<Type::Str>") {
+		scalarCodecPropTest<Type::Str>("hypnos");
 	}
 
 	SECTION("::interval") {
@@ -342,26 +272,6 @@ TEST_CASE("StrProp") {
 
 		node.is<Type::Str>().length(x < 0);
 		REQUIRE(!node.ok());
-	}
-
-	SECTION("::opt") {
-		Node null_node(Source::null());
-
-		REQUIRE(!null_node.is<Type::Str>().opt().has_value());
-		REQUIRE(null_node.ok());
-
-		REQUIRE("hypnos" == null_node.is<Type::Str>().defaultValue("hypnos").opt().value());
-	}
-
-	SECTION("::get") {
-		REQUIRE("hypnos" == node.is<Type::Str>().get());
-
-		Node null_node(Source::null());
-		null_node.is<Type::Str>();
-		REQUIRE(null_node.ok());
-
-		null_node.is<Type::Str>().get();
-		REQUIRE(!null_node.ok());
 	}
 
 	SECTION("::operator T") {
@@ -405,6 +315,26 @@ TEST_CASE("MonoMapProp") {
 		REQUIRE(null_node.ok());
 		REQUIRE(1 == value.size());
 		REQUIRE(42 == value.at("answer"));
+	}
+
+	SECTION("::encodeDefaultValueInto") {
+		auto source = Source::make(nullptr);
+		REQUIRE(!source->is(Type::Map));
+
+		auto p = detail::getProp(prop<Type::Map>().of<Type::Int>().defaultValue({
+		    {"a", 1},
+		    {"b", 2},
+		    {"c", 3},
+		}));
+		p->encodeDefaultValueInto(*source);
+		REQUIRE(source->is(Type::Map));
+
+		REQUIRE(3 == source->size());
+
+		StorageOf<Type::Int> v;
+		REQUIRE((source->next("a")->get(v) && (1 == v)));
+		REQUIRE((source->next("b")->get(v) && (2 == v)));
+		REQUIRE((source->next("c")->get(v) && (3 == v)));
 	}
 
 	SECTION("::containing") {
@@ -457,6 +387,30 @@ TEST_CASE("StructuredProp") {
 		auto const profile = null_node.is<Type::Map>().to<Profile>() | field("age", &Profile::age) || Profile{.age = 42};
 		REQUIRE(null_node.ok());
 		REQUIRE(42 == profile.age);
+	}
+
+	SECTION("::encodeDefaultValueInto") {
+		auto source = Source::make(nullptr);
+		REQUIRE(!source->is(Type::Map));
+
+		auto p = detail::getProp(
+		    prop<Type::Map>().to<Profile>()
+		        | field("name", &Profile::name)
+		        | field("age", &Profile::age)
+		    || Profile{
+		        .name = "hypnos",
+		        .age  = 42,
+		    });
+		p->encodeDefaultValueInto(*source);
+		REQUIRE(source->is(Type::Map));
+
+		REQUIRE(2 == source->size());
+
+		StorageOf<Type::Str> name;
+		REQUIRE((source->next("name")->get(name) && ("hypnos" == name)));
+
+		StorageOf<Type::Int> age;
+		REQUIRE((source->next("age")->get(age) && (42 == age)));
 	}
 
 	SECTION("optional field") {
@@ -512,6 +466,22 @@ TEST_CASE("MonoListProp") {
 		REQUIRE(null_node.ok());
 		REQUIRE(3 == value.size());
 		REQUIRE(42 == value.at(1));
+	}
+
+	SECTION("::encodeDefaultValueInto") {
+		auto source = Source::make(nullptr);
+		REQUIRE(!source->is(Type::List));
+
+		auto p = detail::getProp(prop<Type::List>().of<Type::Int>().defaultValue({2, 4, 8}));
+		p->encodeDefaultValueInto(*source);
+		REQUIRE(source->is(Type::List));
+
+		REQUIRE(3 == source->size());
+
+		StorageOf<Type::Int> v;
+		REQUIRE((source->next(0)->get(v) && (2 == v)));
+		REQUIRE((source->next(1)->get(v) && (4 == v)));
+		REQUIRE((source->next(2)->get(v) && (8 == v)));
 	}
 
 	SECTION("::size") {

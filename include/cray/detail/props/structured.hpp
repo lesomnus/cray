@@ -55,17 +55,19 @@ class FieldProp
 
    protected:
 	void encodeInto_(Source& dst, MappedType const& value) const override {
+		auto next = dst.next(this->ref);
+
 		if constexpr(IsOptional<V>) {
 			if(value.*this->member) {
 				typename P::StorageType const v = *(value.*this->member);
-				P::encodeInto(dst, v);
+				P::encodeInto(*next, v);
 			}
 		} else {
 			if constexpr(std::is_same_v<StorageType, typename P::StorageType>) {
-				P::encodeInto(dst, value.*this->member);
+				P::encodeInto(*next, value.*this->member);
 			} else {
 				typename P::StorageType const v = value.*this->member;
-				P::encodeInto(dst, v);
+				P::encodeInto(*next, v);
 			}
 		}
 	}

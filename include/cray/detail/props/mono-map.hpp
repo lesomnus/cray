@@ -127,21 +127,23 @@ class MonoMapProp
    protected:
 	void encodeInto_(Source& dst, StorageType const& value) const {
 		for(auto const& [key, next_value]: value) {
-			this->next_prop->encodeInto(*this->source->next(key), next_value);
+			auto next = dst.next(key);
+			this->next_prop->encodeInto(*next, next_value);
 		}
 	}
 
 	bool decodeFrom_(Source const& src, StorageType& value) const {
-		if(!this->source->is(Type::Map)) {
+		if(!src.is(Type::Map)) {
 			return false;
 		}
 
-		if(!std::ranges::all_of(this->required_keys, HeldBy(*this->source))) {
+		if(!std::ranges::all_of(this->required_keys, HeldBy(src))) {
 			return false;
 		}
 
 		src.keys([&](std::string const& key) {
-			return this->next_prop->decodeFrom(*this->source->next(key), value[key]);
+			auto next = src.next(key);
+			return this->next_prop->decodeFrom(*next, value[key]);
 		});
 
 		return true;

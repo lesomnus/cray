@@ -29,13 +29,12 @@ class MapProp: public TransitiveProp {
 		auto of(Annotation annotation, D describer) const {
 			using P = MonoMapPropOf<Next>;
 
-			auto const prev = this->prop_->prev.lock();
-			assert(prev != nullptr);
+			auto prev     = this->prop_->prev.lock();
+			auto new_curr = makeProp<P>(std::move(annotation), std::move(prev), this->prop_->ref);
 
-			auto new_curr       = makeProp<P>(std::move(annotation), prev, this->prop_->ref);
-			auto next           = getProp(std::move(describer));
-			next->prev          = new_curr;
-			new_curr->next_prop = std::move(next);
+			auto next_prop      = getProp(std::move(describer));
+			next_prop->prev     = new_curr;
+			new_curr->next_prop = std::move(next_prop);
 
 			return DescriberOf<P, Ctx>(std::move(new_curr));
 		}
@@ -60,10 +59,8 @@ class MapProp: public TransitiveProp {
 			using P = detail::StructuredProp<V>;
 			using D = detail::DescriberOf<P, Ctx>;
 
-			auto const prev = this->prop_->prev.lock();
-			assert(prev != nullptr);
-
-			auto new_curr = makeProp<P>(std::move(annotation), prev, this->prop_->ref);
+			auto prev     = this->prop_->prev.lock();
+			auto new_curr = makeProp<P>(std::move(annotation), std::move(prev), this->prop_->ref);
 			return D(std::move(new_curr));
 		}
 
