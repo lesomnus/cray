@@ -2,13 +2,11 @@
 
 #include <algorithm>
 #include <concepts>
-#include <iterator>
 #include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
-#include <vector>
 
 #include "cray/detail/ordered_set.hpp"
 #include "cray/detail/prop.hpp"
@@ -27,9 +25,9 @@ class MonoMapProp
     : public CodecProp<std::unordered_map<std::string, V>>
     , public MonoMapPropAccessor {
    public:
-	using StorageType      = std::unordered_map<std::string, V>;
-	using ChildPropType    = P;
-	using ChildStorageType = V;
+	using StorageType     = std::unordered_map<std::string, V>;
+	using NextPropType    = P;
+	using NextStorageType = V;
 
 	template<typename Ctx, bool = true>
 	class DescriberBase: public detail::Describer<MonoMapProp<V, P>> {
@@ -113,6 +111,15 @@ class MonoMapProp
 		return it != this->required_keys.end();
 	}
 
+	void assign(Reference const& ref, std::shared_ptr<Prop> prop) override {
+		auto next = std::dynamic_pointer_cast<CodecProp<NextStorageType>>(std::move(prop));
+		if(next == nullptr) {
+			throw InvalidAccessError();
+		}
+
+		this->next_prop = std::move(next);
+	}
+
 	std::shared_ptr<Prop> at(Reference const& ref) const override {
 		return this->next_prop;
 	}
@@ -121,8 +128,8 @@ class MonoMapProp
 		return required_keys;
 	}
 
-	std::shared_ptr<CodecProp<ChildStorageType>> next_prop;
-	OrderedSet<std::string>                      required_keys;
+	std::shared_ptr<CodecProp<NextStorageType>> next_prop;
+	OrderedSet<std::string>                     required_keys;
 
    protected:
 	void encodeInto_(Source& dst, StorageType const& value) const {
@@ -153,10 +160,13 @@ class MonoMapProp
 template<std::derived_from<Prop> P>
 using MonoMapPropOf = MonoMapProp<typename P::StorageType, P>;
 
-template<typename T>
-struct PropFor_<std::unordered_map<std::string, T>> {
-	using type = MonoMapPropOf<PropFor<T>>;
+template<typename V>
+struct PropFor_<std::unordered_map<std::string, V>> {
+	using type = MonoMapPropOf<PropFor<V>>;
 };
+
+template<typename V, typename P>
+struct IsMonoPropHolder_<MonoMapProp<V, P>>: std::true_type { };
 
 }  // namespace detail
 }  // namespace cray

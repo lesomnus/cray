@@ -1,5 +1,6 @@
 #pragma once
 
+#include <concepts>
 #include <memory>
 #include <string>
 #include <utility>
@@ -61,6 +62,7 @@ class MapProp: public TransitiveProp {
 
 			auto prev     = this->prop_->prev.lock();
 			auto new_curr = makeProp<P>(std::move(annotation), std::move(prev), this->prop_->ref);
+
 			return D(std::move(new_curr));
 		}
 

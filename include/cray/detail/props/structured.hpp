@@ -1,12 +1,14 @@
 #pragma once
 
+#include <cassert>
 #include <concepts>
 #include <memory>
+#include <optional>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
+#include "cray/detail/ordered_map.hpp"
 #include "cray/detail/ordered_set.hpp"
 #include "cray/detail/prop.hpp"
 #include "cray/types.hpp"
@@ -217,10 +219,8 @@ class StructuredProp: public CodecProp<V> {
 		}
 	}
 
-	// TODO: using ordered map
-	std::unordered_map<std::string, std::shared_ptr<CodecProp<StorageType>>> codecs;
-
-	OrderedSet<std::string> required_keys;
+	OrderedMap<std::string, std::shared_ptr<CodecProp<StorageType>>> codecs;
+	OrderedSet<std::string>                                          required_keys;
 
    protected:
 	void encodeInto_(Source& dst, StorageType const& value) const override {
@@ -260,7 +260,10 @@ inline auto field(Annotation annotation, std::string name, V M::*member) {
 	using P = detail::FieldProp<M, V>;
 	using D = detail::DescriberOf<P, detail::FieldContext<M>>;
 
-	return D(std::make_shared<P>(std::move(annotation), std::move(name), member));
+	auto prop = std::make_shared<P>(std::move(annotation), std::move(name), member);
+	detail::initPropRecursive(std::static_pointer_cast<detail::PropFor<V>>(prop));
+
+	return D(std::move(prop));
 }
 
 template<typename M, typename V>

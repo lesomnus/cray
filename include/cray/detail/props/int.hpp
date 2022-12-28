@@ -41,7 +41,7 @@ class BasicIntProp: public BasicNumericProp<V> {
 		inline operator long long() const { return this->get_<long long>(); }
 
 		inline operator unsigned short()     const { return this->get_<unsigned short    >(); }
-		inline operator unsigned()           const { return this->get_<unsigned int      >(); }
+		inline operator unsigned int()       const { return this->get_<unsigned int      >(); }
 		inline operator unsigned long()      const { return this->get_<unsigned long     >(); }
 		inline operator unsigned long long() const { return this->get_<unsigned long long>(); }
 		// clang-format on

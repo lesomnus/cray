@@ -251,6 +251,12 @@ struct PropFor_<std::optional<T>> {
 template<typename T>
 using PropFor = PropFor_<T>::type;
 
+template<typename T>
+struct IsMonoPropHolder_: std::false_type { };
+
+template<typename T>
+static constexpr bool IsMonoPropHolder = IsMonoPropHolder_<T>::value;
+
 struct EmptyContext { };
 struct GettableContext { };
 
@@ -314,6 +320,18 @@ std::shared_ptr<P> makeProp(Annotation annotation, std::shared_ptr<Prop> const& 
 	}
 
 	return curr;
+}
+
+template<std::derived_from<Prop> P>
+void initPropRecursive(std::shared_ptr<P> const& prop) {
+	if constexpr(IsMonoPropHolder<P>) {
+		using NextProp = typename P::NextPropType;
+
+		auto next = makeProp<NextProp>(Annotation{}, prop, Reference());
+		prop->assign(Reference(), next);
+
+		initPropRecursive<NextProp>(next);
+	}
 }
 
 }  // namespace detail

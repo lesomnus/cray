@@ -1,6 +1,10 @@
 #pragma once
 
+#include <type_traits>
+
 #include "cray/detail/prop.hpp"
+#include "cray/source.hpp"
+#include "cray/types.hpp"
 
 namespace cray {
 namespace detail {

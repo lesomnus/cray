@@ -1,5 +1,8 @@
 #pragma once
 
+#include <concepts>
+#include <utility>
+
 #include "cray/detail/prop.hpp"
 #include "cray/detail/props/mono-list.hpp"
 #include "cray/types.hpp"

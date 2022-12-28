@@ -2,12 +2,12 @@
 
 #include <cstddef>
 #include <string>
-#include <string_view>
 #include <type_traits>
 #include <utility>
 
 #include "cray/detail/interval.hpp"
 #include "cray/detail/props/scalar.hpp"
+#include "cray/source.hpp"
 #include "cray/types.hpp"
 
 namespace cray {

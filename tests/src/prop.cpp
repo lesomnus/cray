@@ -20,8 +20,11 @@ struct Profile {
 	Nested nested;
 
 	std::optional<unsigned int> id;
+};
 
-	std::unordered_map<std::string, int> balance;
+template<typename T>
+struct Holder {
+	T value;
 };
 
 template<typename T, typename U>
@@ -211,7 +214,7 @@ TEST_CASE("IntProp") {
 		REQUIRE(be<long>(42, desc));
 		REQUIRE(be<long long>(42, desc));
 		REQUIRE(be<unsigned short>(42, desc));
-		REQUIRE(be<unsigned>(42, desc));
+		REQUIRE(be<unsigned int>(42, desc));
 		REQUIRE(be<unsigned long>(42, desc));
 		REQUIRE(be<unsigned long long>(42, desc));
 	}
@@ -486,23 +489,43 @@ TEST_CASE("StructuredProp") {
 		REQUIRE(21 == profile.nested.value);
 	}
 
-	// SECTION("of MonoMapProp") {
-	// 	Node node(Source::make({
-	// 	    _{"balance", {_{"USD", 123}, _{"KRW", 456789}}},
-	// 	}));
+	SECTION("of MonoMapProp") {
+		using H = Holder<std::unordered_map<std::string, int>>;
 
-	// 	auto const actual =
-	// 	    node.is<Type::Map>().to<Profile>()
-	// 	        | field("balance", &Profile::balance)
-	// 	    && get;
+		Node node(Source::make({
+		    _{"value", {_{"a", 1}, _{"b", 2}, _{"c", 3}}},
+		}));
 
-	// 	std::unordered_map<std::string, int> const expected{
-	// 	    {"USD", 123},
-	// 	    {"KRW", 456789},
-	// 	};
+		auto const actual =
+		    node.is<Type::Map>().to<H>()
+		        | field("value", &H::value)
+		    && get;
 
-	// 	REQUIRE(expected == actual.balance);
-	// }
+		std::unordered_map<std::string, int> const expected{
+		    {"a", 1},
+		    {"b", 2},
+		    {"c", 3},
+		};
+
+		REQUIRE(expected == actual.value);
+	}
+
+	SECTION("of MonoListProp") {
+		using H = Holder<std::vector<int>>;
+
+		Node node(Source::make({
+		    _{"value", {1, 2, 3}},
+		}));
+
+		auto const actual =
+		    node.is<Type::Map>().to<H>()
+		        | field("value", &H::value)
+		    && get;
+
+		std::vector<int> const expected{1, 2, 3};
+
+		REQUIRE(expected == actual.value);
+	}
 }
 
 TEST_CASE("ListProp") {

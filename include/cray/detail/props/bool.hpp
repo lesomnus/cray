@@ -3,6 +3,7 @@
 #include <optional>
 #include <string>
 #include <type_traits>
+#include <utility>
 
 #include "cray/detail/props/scalar.hpp"
 #include "cray/types.hpp"

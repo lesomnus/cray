@@ -17,6 +17,7 @@ TEST_CASE("is") {
 
 TEST_CASE("as") {
 	using namespace cray;
+	using _ = cray::Source::Entry::MapValueType;
 
 	SECTION("optional") {
 		{
@@ -73,9 +74,13 @@ TEST_CASE("as") {
 		REQUIRE(be(Node(Source::make("hypnos")), std::string("hypnos")));
 	}
 
-	// SECTION("std::vector") {
-	// 	REQUIRE(be(Node(Source::make({1, 2, 3})), std::vector<int>({1, 2, 3})));
-	// }
+	SECTION("std::vector") {
+		REQUIRE(be(Node(Source::make({1, 2, 3})), std::vector<int>({1, 2, 3})));
+	}
+
+	SECTION("std::unordered_map") {
+		REQUIRE(be(Node(Source::make({_{"a", 1}, _{"b", 2}, _{"c", 3}})), std::unordered_map<std::string, int>({{"a", 1}, {"b", 2}, {"c", 3}})));
+	}
 }
 
 TEST_CASE("getProp") {

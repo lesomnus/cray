@@ -1,6 +1,10 @@
 #pragma once
 
 #include <concepts>
+#include <cstddef>
+#include <memory>
+#include <optional>
+#include <type_traits>
 #include <vector>
 
 #include "cray/detail/interval.hpp"
@@ -20,9 +24,9 @@ class MonoListProp
     : public CodecProp<std::vector<V>>
     , public MonoListAccessor {
    public:
-	using StorageType      = std::vector<V>;
-	using ChildPropType    = P;
-	using ChildStorageType = V;
+	using StorageType     = std::vector<V>;
+	using NextPropType    = P;
+	using NextStorageType = V;
 
 	template<typename Ctx, bool = true>
 	class DescriberBase: public detail::Describer<MonoListProp<V, P>> {
@@ -90,7 +94,7 @@ class MonoListProp
 			return !this->isNeeded() || this->hasDefault();
 		}
 
-		if(auto const size = this->source->size(); !this->size.contains(size)) {
+		if(std::size_t const size = this->source->size(); !this->size.contains(size)) {
 			return false;
 		}
 
@@ -101,6 +105,15 @@ class MonoListProp
 		throw InvalidAccessError();
 	}
 
+	void assign(Reference const& ref, std::shared_ptr<Prop> prop) override {
+		auto next = std::dynamic_pointer_cast<CodecProp<NextStorageType>>(std::move(prop));
+		if(next == nullptr) {
+			throw InvalidAccessError();
+		}
+
+		this->next_prop = std::move(next);
+	}
+
 	std::shared_ptr<Prop> at(Reference const& ref) const override {
 		return this->next_prop;
 	}
@@ -109,7 +122,7 @@ class MonoListProp
 		return this->size;
 	}
 
-	std::shared_ptr<CodecProp<ChildStorageType>> next_prop;
+	std::shared_ptr<CodecProp<NextStorageType>> next_prop;
 
 	Interval<std::size_t> size;
 
@@ -151,6 +164,9 @@ template<typename T>
 struct PropFor_<std::vector<T>> {
 	using type = MonoListPropOf<PropFor<T>>;
 };
+
+template<typename V, typename P>
+struct IsMonoPropHolder_<MonoListProp<V, P>>: std::true_type { };
 
 }  // namespace detail
 }  // namespace cray

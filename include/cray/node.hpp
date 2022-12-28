@@ -88,6 +88,7 @@ class Node {
 		auto curr = std::dynamic_pointer_cast<P>(this->curr_());
 		if(curr == nullptr) {
 			curr = detail::makeProp<P>(std::move(annotation), this->prev_, this->ref_);
+			detail::initPropRecursive(curr);
 		}
 
 		return curr;
