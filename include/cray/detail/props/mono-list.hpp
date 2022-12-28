@@ -86,7 +86,7 @@ class MonoListProp
 	}
 
 	std::string name() const override {
-		return "List<" + this->next_prop->name() + ">";
+		return "List of " + this->next_prop->name();
 	}
 
 	bool ok() const override {

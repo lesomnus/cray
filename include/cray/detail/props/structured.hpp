@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <concepts>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -95,8 +96,17 @@ class FieldProp
 	}
 };
 
+class StructuredPropAccessor {
+   public:
+	virtual std::size_t getSize() const = 0;
+
+	virtual void getNextProps(std::function<bool(std::string const&, std::shared_ptr<Prop> const&)> const& functor) const = 0;
+};
+
 template<typename V>
-class StructuredProp: public CodecProp<V> {
+class StructuredProp
+    : public CodecProp<V>
+    , public StructuredPropAccessor {
    public:
 	using StorageType = V;
 
@@ -216,6 +226,16 @@ class StructuredProp: public CodecProp<V> {
 			return nullptr;
 		} else {
 			return it->second;
+		}
+	}
+
+	std::size_t getSize() const override {
+		return this->codecs.size();
+	}
+
+	void getNextProps(std::function<bool(std::string const&, std::shared_ptr<Prop> const&)> const& functor) const override {
+		for(auto const& [key, codec]: codecs) {
+			functor(key, codec);
 		}
 	}
 

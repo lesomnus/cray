@@ -54,6 +54,10 @@ class Source {
 
 	virtual std::size_t size() const = 0;
 
+	inline bool isEmpty() const {
+		return this->size() == 0;
+	}
+
 	virtual bool has(Reference const& ref) const = 0;
 
 	virtual bool is(Type type) const = 0;

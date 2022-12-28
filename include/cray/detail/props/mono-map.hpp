@@ -87,7 +87,7 @@ class MonoMapProp
 	}
 
 	std::string name() const override {
-		return "Map<" + this->next_prop->name() + ">";
+		return "Map of " + this->next_prop->name();
 	}
 
 	bool ok() const override {

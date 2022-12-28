@@ -7,8 +7,6 @@
 #include <stdexcept>
 #include <string>
 
-#include <ranges>
-
 #include "cray/detail/props.hpp"
 #include "cray/node.hpp"
 #include "cray/report.hpp"
@@ -71,8 +69,9 @@ struct ReportContext {
 		auto const& p     = dynamic_cast<CodecProp<StorageOf<T>> const&>(prop);
 		auto const  value = p.opt();
 		if(!value.has_value()) {
+			dst << "  # <" << p.name() << ">";
 			if(p.isNeeded()) {
-				dst << "  # ⚠️ REQUIRED";
+				dst << "  ⚠️ REQUIRED";
 			}
 			return;
 		}
@@ -99,7 +98,7 @@ struct ReportContext {
 		} else if(dynamic_cast<MonoMapPropAccessor const*>(&prop) != nullptr) {
 			reportMonoMap(prop);
 		} else {
-			throw std::runtime_error("not implemented");
+			reportStructuredMap(prop);
 		}
 	}
 
@@ -123,34 +122,65 @@ struct ReportContext {
 			return;
 		}
 
-		annotate(*next_prop, [] {});
+		this->annotate(*next_prop, [] {});
 
 		// Check required fields
 		{
 			auto const& accessor      = dynamic_cast<MonoMapPropAccessor const&>(prop);
 			auto const& required_keys = accessor.getRequiredKeys();
 
-			auto cnt_remain_required_keys = required_keys.size();
-			if(prop.source->size() > 0) {
-				cnt_remain_required_keys += 1;
-			}
-
-			for(auto const& key: required_keys | std::views::drop_while(HeldBy(*prop.source))) {
-				this->tab();
-				this->dst << key << ":   # ⚠️ REQUIRED";
-
-				if(--cnt_remain_required_keys > 0) {
-					this->dst << std::endl;
+			for(auto const& key: required_keys) {
+				if(prop.source->has(key)) {
+					continue;
 				}
+
+				this->tab();
+				this->dst << key << ":   # <" << next_prop->name() << ">  ⚠️ REQUIRED";
+				this->dst << std::endl;
 			}
 		}
 
 		std::size_t cnt_remain = prop.source->size();
+		if(cnt_remain == 0) {
+			this->tab();
+			this->dst << "# key: <" << next_prop->name() << ">";
+		}
 		prop.source->keys([&](std::string const& key) {
 			this->tab();
 			this->dst << key << ": ";
 
 			next_prop->source = prop.source->next(key);
+			next_prop->ref    = key;
+			this->report(*next_prop);
+
+			if(--cnt_remain > 0) {
+				this->dst << std::endl;
+			}
+
+			return true;
+		});
+	}
+
+	void reportStructuredMap(Prop const& prop) {
+		auto const& p = dynamic_cast<StructuredPropAccessor const&>(prop);
+
+		std::shared_ptr<Source> source;
+		if(prop.hasDefault() && !prop.source->is(Type::Map)) {
+			source = Source::make(nullptr);
+			prop.encodeDefaultValueInto(*source);
+			assert(source->is(Type::Map));
+		} else {
+			source = prop.source;
+		}
+
+		std::size_t cnt_remain = p.getSize();
+		p.getNextProps([&](std::string const& key, std::shared_ptr<Prop> const& next_prop) {
+			this->annotate(*next_prop, [] {});
+
+			this->tab();
+			this->dst << key << ": ";
+
+			next_prop->source = source->next(key);
 			next_prop->ref    = key;
 			this->report(*next_prop);
 
@@ -183,6 +213,14 @@ struct ReportContext {
 			assert(source->is(Type::List));
 		} else {
 			source = prop.source;
+		}
+
+		if(source->isEmpty()) {
+			this->tab();
+			this->dst << "# - <" << next_prop->name() << ">" << std::endl;
+			this->tab();
+			this->dst << "# - ...";
+			return;
 		}
 
 		if(isScalarType(next_prop->type())) {
