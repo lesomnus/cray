@@ -53,3 +53,28 @@ TEST_CASE("IsOptional") {
 	STATIC_REQUIRE(IsOptional<std::optional<int>>);
 	STATIC_REQUIRE(not IsOptional<int>);
 }
+
+TEST_CASE("Reference") {
+	using namespace cray;
+
+	REQUIRE(Reference(42).isIndex());
+	REQUIRE(42 == Reference(42).index());
+
+	REQUIRE(Reference("hypnos").isKey());
+	REQUIRE("hypnos" == Reference("hypnos").key());
+
+	auto const be = [](auto expected) {
+		return [&](auto value) {
+			using T = std::decay_t<decltype(expected)>;
+			using U = std::decay_t<decltype(value)>;
+
+			if constexpr(std::is_same_v<T, U>) {
+				return expected == value;
+			} else {
+				return false;
+			}
+		};
+	};
+	REQUIRE(Reference(42).visit(be(std::size_t(42))));
+	REQUIRE(Reference("hypnos").visit(be(std::string("hypnos"))));
+}

@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <variant>
 
 namespace cray {
@@ -28,6 +29,12 @@ class InvalidAccessError: public std::logic_error {
    public:
 	InvalidAccessError()
 	    : std::logic_error("invalid access") { }
+};
+
+class InvalidTypeError: public std::runtime_error {
+   public:
+	InvalidTypeError(Type t)
+	    : std::runtime_error("invalid type: " + std::to_string(static_cast<std::underlying_type_t<Type>>(t))) { }
 };
 
 // clang-format off
@@ -120,6 +127,24 @@ class Reference {
 	Reference(char const* value)
 	    : storage_(std::string(value)) { }
 
+	bool isIndex() const {
+		return std::holds_alternative<std::size_t>(storage_);
+	}
+
+	bool isKey() const {
+		return std::holds_alternative<std::string>(storage_);
+	}
+
+	template<typename R, typename F>
+	R visit(F&& visitor) const {
+		return std::visit(std::forward<F>(visitor), this->storage_);
+	}
+
+	template<typename F>
+	auto visit(F&& visitor) const {
+		return std::visit(std::forward<F>(visitor), this->storage_);
+	}
+
 	std::size_t index() const {
 		return std::get<std::size_t>(storage_);
 	}
@@ -134,10 +159,6 @@ class Reference {
 
 	std::string&& key() && {
 		return std::move(std::get<std::string>(storage_));
-	}
-
-	bool isIndex() const {
-		return std::holds_alternative<std::size_t>(storage_);
 	}
 
    private:

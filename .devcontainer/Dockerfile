@@ -1,5 +1,12 @@
 FROM ghcr.io/lesomnus/dev-gcc:12
 
+RUN sudo -u hypnos vcpkg install \
+		yaml-cpp \
+	&& rm -rf \
+		"${VCPKG_ROOT}/buildtrees" \
+		"${VCPKG_ROOT}/packages" \
+		"${VCPKG_DOWNLOADS}"/*
+
 USER hypnos
 
 RUN wget https://github.com/robbyrussell/oh-my-zsh/raw/master/tools/install.sh -O - | zsh || true \

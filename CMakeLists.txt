@@ -15,6 +15,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 
 
+find_package(yaml-cpp CONFIG)
+
+
+
 add_library(
 	CRay SHARED
 		include/cray/detail/props/bool.hpp
@@ -35,6 +39,7 @@ add_library(
 		include/cray/detail/ordered_set.hpp
 		include/cray/detail/prop.hpp
 		include/cray/detail/props.hpp
+		include/cray/load.hpp
 		include/cray/node.hpp
 		include/cray/report.hpp
 		include/cray/source.hpp
@@ -43,24 +48,35 @@ add_library(
 		src/report/yaml.cpp
 		src/source/entry.cpp
 		src/source/null.cpp
+		src/load.cpp
 		src/source.cpp
 )
 target_include_directories(
-	CRay
-		PUBLIC
-			$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-			$<INSTALL_INTERFACE:${CMAKE_INSTALL_PREFIX}/include>
+	CRay PUBLIC
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+		$<INSTALL_INTERFACE:${CMAKE_INSTALL_PREFIX}/include>
 )
-# target_link_libraries(
-# 	CRay
-# 		PRIVATE
-# 			yaml-cpp
-# )
-
 add_library(
 	CRay::CRay
 		ALIAS CRay
 )
+
+if(TARGET yaml-cpp)
+message(STATUS "CRay::yaml enabled")
+add_library(
+	CRay_yaml SHARED
+		src/loaders/yaml.cpp
+)
+target_link_libraries(
+	CRay_yaml PRIVATE
+		CRay::CRay
+		yaml-cpp
+)
+add_library(
+	CRay::yaml
+		ALIAS CRay_yaml
+)
+endif()
 
 
 

@@ -1,14 +1,13 @@
 #pragma once
 
 #include <cstddef>
+#include <filesystem>
 #include <functional>
 #include <initializer_list>
+#include <iosfwd>
 #include <memory>
 #include <string>
 #include <utility>
-#include <vector>
-
-#include <unordered_map>
 
 #include "cray/types.hpp"
 
@@ -36,6 +35,9 @@ class Source {
 
 	static std::shared_ptr<Source> null();
 	static std::shared_ptr<Source> make(Entry entry);
+
+	static std::shared_ptr<Source> load(std::string const& name, std::istream& in);
+	static std::shared_ptr<Source> load(std::string const& name, std::filesystem::path const& path);
 
 	virtual ~Source() { }
 

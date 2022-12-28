@@ -11,7 +11,10 @@
 	"settings": {
 		"editor.detectIndentation": false,
 		"editor.insertSpaces": false,
-		"C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"
+		"C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+		"cmake.configureArgs": [
+			"-DCMAKE_TOOLCHAIN_FILE:FILEPATH=/opt/vcpkg/scripts/buildsystems/vcpkg.cmake"
+		]
 	},
 	"extensions": [
 		"ms-vscode.cpptools",
