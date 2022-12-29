@@ -271,7 +271,18 @@ TEST_CASE("StrProp") {
 		scalarCodecPropTest<Type::Str>("hypnos");
 	}
 
-	SECTION("::interval") {
+	SECTION("::oneOf") {
+		node.is<Type::Str>();
+		REQUIRE(node.ok());
+
+		node.is<Type::Str>().oneOf({"hypnos", "somnus"});
+		REQUIRE(node.ok());
+
+		node.is<Type::Str>().oneOf({"foo", "bar"});
+		REQUIRE(!node.ok());
+	}
+
+	SECTION("::length") {
 		node.is<Type::Str>().length(0 < x);
 		REQUIRE(node.ok());
 

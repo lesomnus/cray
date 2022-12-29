@@ -39,6 +39,11 @@ class StrProp: public ScalarProp<Type::Str> {
 			}
 		}
 
+		inline Describer const& oneOf(OrderedSet<std::string> values) const {
+			this->prop_->allowed_values = std::move(values);
+			return *this;
+		}
+
 		inline Describer const& length(Interval<std::size_t> interval) const {
 			this->prop_->length = interval;
 			return *this;
@@ -61,6 +66,10 @@ class StrProp: public ScalarProp<Type::Str> {
 			return !this->isNeeded() || this->default_value.has_value();
 		}
 
+		if(!this->allowed_values.empty() && !this->allowed_values.contains(value)) {
+			return false;
+		}
+
 		if(!this->length.contains(value.length())) {
 			return false;
 		}
@@ -68,7 +77,8 @@ class StrProp: public ScalarProp<Type::Str> {
 		return true;
 	}
 
-	Interval<std::size_t> length;
+	OrderedSet<std::string> allowed_values;
+	Interval<std::size_t>   length;
 
    protected:
 	bool decodeFrom_(Source const& src, StorageType& value) const override {
