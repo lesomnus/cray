@@ -105,13 +105,18 @@ struct ReportContext {
 	void report(PolyMpaProp const& prop) {
 		auto i = prop.next_props.size();
 		for(auto const& [key, next_prop]: prop.next_props) {
-			annotate(*next_prop, [] {});
+			bool annotated = false;
+			annotate(*next_prop, [&] { annotated = true; });
 			this->tab();
 			this->dst << key << ": ";
 			this->report(*next_prop);
 
 			if(--i > 0) {
 				this->dst << std::endl;
+
+				if(annotated) {
+					this->dst << std::endl;
+				}
 			}
 		}
 	}
@@ -224,12 +229,17 @@ struct ReportContext {
 		}
 
 		if(isScalarType(next_prop->type())) {
-			annotate(*next_prop, [this, called = false]() mutable {
-				if(!called) {
-					called = true;
+			bool is_annotated = false;
+			annotate(*next_prop, [this, &is_annotated]() mutable {
+				if(!is_annotated) {
+					is_annotated = true;
 					this->dst << std::endl;
 				}
 			});
+
+			if(is_annotated) {
+				this->tab();
+			}
 
 			this->dst << "[";
 
@@ -347,6 +357,21 @@ struct ReportContext {
 	}
 
 	void annotate(StrProp const& prop, std::function<void()> const& on_annotate) {
+		if(!prop.allowed_values.empty()) {
+			on_annotate();
+			this->tab();
+			this->dst << "# • ";
+
+			std::size_t cnt_remain = prop.allowed_values.size();
+			for(auto const& value: prop.allowed_values) {
+				this->dst << value;
+				if(--cnt_remain > 0) {
+					this->dst << " | ";
+				}
+			}
+			this->dst << std::endl;
+		}
+
 		if(!prop.length.isAll()) {
 			on_annotate();
 			this->tab();

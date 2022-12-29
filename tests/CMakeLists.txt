@@ -19,6 +19,8 @@ include(Catch)
 macro (CRay_SIMPLE_TEST NAME)
 	add_executable(
 		${NAME}-test
+			include/testing.hpp
+
 			src/${NAME}.cpp
 	)
 	target_include_directories(
