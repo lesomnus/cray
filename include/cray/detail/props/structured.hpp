@@ -275,6 +275,22 @@ struct PropFor_ {
 
 }  // namespace detail
 
+template<typename M, typename V, typename Next = detail::PropFor<V>::NextPropType>
+inline auto field(Annotation annotation, std::string name, V M::*member, detail::DescriberOf<Next, detail::EmptyContext> next) {
+	using P = detail::FieldProp<M, V>;
+	using D = detail::DescriberOf<P, detail::FieldContext<M>>;
+
+	auto prop = std::make_shared<P>(std::move(annotation), std::move(name), member);
+	prop->assign(Reference(), detail::getProp(std::move(next)));
+
+	return D(std::move(prop));
+}
+
+template<typename M, typename V, typename Next = detail::PropFor<V>::NextPropType>
+inline auto field(std::string name, V M::*member, detail::DescriberOf<Next, detail::EmptyContext> next) {
+	return field(Annotation{}, std::move(name), member, std::move(next));
+}
+
 template<typename M, typename V>
 inline auto field(Annotation annotation, std::string name, V M::*member) {
 	using P = detail::FieldProp<M, V>;

@@ -29,6 +29,7 @@ macro (CRay_SIMPLE_TEST NAME)
 		${NAME}-test PRIVATE
 			Catch2::Catch2WithMain
 			CRay::CRay
+			CRay::yaml
 	)
 	catch_discover_tests(${NAME}-test)
 endmacro (CRay_SIMPLE_TEST)
@@ -42,7 +43,4 @@ CRay_SIMPLE_TEST(report-yaml)
 CRay_SIMPLE_TEST(source)
 CRay_SIMPLE_TEST(types)
 
-target_link_libraries(
-	source-test PRIVATE
-		CRay::yaml
-)
+CRay_SIMPLE_TEST(example-yaml)

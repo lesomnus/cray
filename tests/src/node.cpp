@@ -4,8 +4,8 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <cray/detail/props.hpp>
 #include <cray/node.hpp>
+#include <cray/props.hpp>
 
 TEST_CASE("is") {
 	using namespace cray;

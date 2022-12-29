@@ -7,8 +7,8 @@
 #include <stdexcept>
 #include <string>
 
-#include "cray/detail/props.hpp"
 #include "cray/node.hpp"
+#include "cray/props.hpp"
 #include "cray/report.hpp"
 #include "cray/types.hpp"
 

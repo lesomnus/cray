@@ -38,12 +38,13 @@ add_library(
 		include/cray/detail/ordered_map.hpp
 		include/cray/detail/ordered_set.hpp
 		include/cray/detail/prop.hpp
-		include/cray/detail/props.hpp
 		include/cray/load.hpp
 		include/cray/node.hpp
+		include/cray/props.hpp
 		include/cray/report.hpp
 		include/cray/source.hpp
 		include/cray/types.hpp
+		include/cray.hpp
 
 		src/report/yaml.cpp
 		src/source/entry.cpp
