@@ -4,6 +4,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <utility>
 
 #include <yaml-cpp/yaml.h>
@@ -12,8 +13,6 @@
 #include "cray/types.hpp"
 
 namespace cray {
-namespace load {
-
 namespace {
 
 class YamlSource: public Source {
@@ -26,18 +25,35 @@ class YamlSource: public Source {
 	}
 
 	std::shared_ptr<Source> next(Reference const& ref) override {
-		return ref.visit([this](auto const& value) {
+		return ref.visit([this](auto const& value) -> std::shared_ptr<Source> {
+			if constexpr(Reference::IsIndex<decltype(value)>) {
+				if(!this->node.IsSequence()) {
+					this->node = YAML::Node(YAML::NodeType::Sequence);
+				}
+
+				// TODO: yaml-cpp replaces seq into map if index jumps.
+				// How about replacing YAML lib with something else?
+				auto size = this->node.size();
+				for(; size < value; ++size) {
+					this->node.push_back(YAML::NodeType::Null);
+				}
+			} else if constexpr(Reference::IsKey<decltype(value)>) {
+				if(!this->node.IsMap()) {
+					this->node = YAML::Node(YAML::NodeType::Map);
+				}
+			}
+
 			return std::make_shared<YamlSource>(this->node[value]);
 		});
 	}
 
 	std::shared_ptr<Source> next(Reference const& ref) const override {
-		auto next_node = this->has_(ref);
+		auto next_node = this->find_(ref);
 		if(!next_node.IsDefined()) {
 			return nullptr;
 		}
 
-		return std::make_shared<YamlSource>(std::move(next_node));
+		return std::static_pointer_cast<Source>(std::make_shared<YamlSource>(std::move(next_node)));
 	}
 
 	void keys(std::function<bool(std::string const& key)> const& functor) const override {
@@ -48,7 +64,7 @@ class YamlSource: public Source {
 	}
 
 	std::size_t size() const override {
-		if(!(this->node.IsMap() || this->node.IsScalar())) {
+		if(!(this->node.IsMap() || this->node.IsSequence())) {
 			return 0;
 		}
 
@@ -56,7 +72,7 @@ class YamlSource: public Source {
 	}
 
 	bool has(Reference const& ref) const override {
-		return this->has_(ref).IsDefined();
+		return this->find_(ref).IsDefined();
 	}
 
 	bool is(Type t) const override {
@@ -107,19 +123,22 @@ class YamlSource: public Source {
 		return this->get_(value);
 	}
 
-	YAML::Node has_(Reference const& ref) const {
-		YAML::Node next_node;
+	YAML::Node find_(Reference const& ref) const {
 		if(ref.isIndex() && this->node.IsSequence()) {
 			auto const index = ref.index();
 			if(this->node.size() > index) {
-				next_node = node[index];
+				return node[index];
 			}
 		} else if(ref.isKey() && this->node.IsMap()) {
 			auto const& key = ref.key();
-			next_node       = this->node[key];
+
+			auto next_node = this->node[key];
+			if(next_node.IsDefined()) {
+				return next_node;
+			}
 		}
 
-		return next_node;
+		return YAML::Node(YAML::NodeType::Undefined);
 	}
 };
 
@@ -127,7 +146,7 @@ class YamlLoader: public Loader {
    public:
 	std::shared_ptr<Source> load(std::istream& in) override {
 		YAML::Node node = YAML::Load(in);
-		return std::make_shared<YamlSource>(std::move(node));
+		return std::static_pointer_cast<Source>(std::make_shared<YamlSource>(std::move(node)));
 	}
 };
 
@@ -144,12 +163,10 @@ class YamlLoaderFactory: public LoaderFactory {
 
 void* const _ = ([] {
 	auto factory = std::make_shared<YamlLoaderFactory>();
-	load::add("yaml", factory);
-	load::add("json", factory);
+	loader_registry::add("yaml", factory);
+	loader_registry::add("json", factory);
 	return nullptr;
 })();
 
 }  // namespace
-
-}  // namespace load
 }  // namespace cray

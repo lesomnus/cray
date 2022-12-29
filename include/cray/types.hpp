@@ -113,6 +113,12 @@ struct Key {
 
 class Reference {
    public:
+	template<typename V>
+	static constexpr bool IsIndex = std::is_same_v<std::size_t, std::remove_cvref_t<V>>;
+
+	template<typename V>
+	static constexpr bool IsKey = std::is_same_v<std::string, std::remove_cvref_t<V>>;
+
 	Reference() = default;
 
 	Reference(std::size_t value)

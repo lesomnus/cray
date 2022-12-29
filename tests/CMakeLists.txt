@@ -41,3 +41,8 @@ CRay_SIMPLE_TEST(prop)
 CRay_SIMPLE_TEST(report-yaml)
 CRay_SIMPLE_TEST(source)
 CRay_SIMPLE_TEST(types)
+
+target_link_libraries(
+	source-test PRIVATE
+		CRay::yaml
+)

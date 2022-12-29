@@ -11,7 +11,7 @@
 namespace cray {
 
 std::shared_ptr<Source> Source::load(std::string const& name, std::istream& in) {
-	auto factory = cray::load::get(name);
+	auto factory = cray::loader_registry::get(name);
 	if(factory == nullptr) {
 		return nullptr;
 	}

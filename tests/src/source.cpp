@@ -1,9 +1,12 @@
 #include <algorithm>
+#include <functional>
 #include <memory>
+#include <sstream>
 #include <utility>
 
 #include <catch2/catch_template_test_macros.hpp>
 
+#include <cray/load.hpp>
 #include <cray/source.hpp>
 #include <cray/types.hpp>
 
@@ -15,9 +18,133 @@ bool eq(std::shared_ptr<cray::Source> src, T storage) {
 	return (src->get(storage)) && (answer == storage);
 }
 
+// make() should return a Source containing information like (written in YAML):
+//```yaml
+// nil: ~
+// b_t: true
+// b_f: false
+// int: 42
+// num: 3.14
+// str: hypnos
+// list:
+//   -
+//     int: 42
+//     num: 3.14
+//     str: hypnos
+//   -
+//     int: 1955
+//     num: 2.718
+//     str: somnus
+//```
+void source_test(std::function<std::shared_ptr<cray::Source>()> make) {
+	using namespace cray;
+
+	auto const src = make();
+
+	SECTION("::is") {
+		REQUIRE(src->is(Type::Map));
+		REQUIRE(src->next("nil")->is(Type::Nil));
+		REQUIRE(src->next("b_t")->is(Type::Bool));
+		REQUIRE(src->next("b_f")->is(Type::Bool));
+		REQUIRE(src->next("int")->is(Type::Int));
+		REQUIRE(src->next("num")->is(Type::Num));
+		REQUIRE(src->next("str")->is(Type::Str));
+		REQUIRE(src->next("list")->is(Type::List));
+
+		REQUIRE(!src->next("not_exists")->is(Type::Nil));
+		REQUIRE(!src->next("not_exists")->is(Type::Bool));
+		REQUIRE(!src->next("not_exists")->is(Type::Int));
+		REQUIRE(!src->next("not_exists")->is(Type::Num));
+		REQUIRE(!src->next("not_exists")->is(Type::Str));
+		REQUIRE(!src->next("not_exists")->is(Type::Map));
+		REQUIRE(!src->next("not_exists")->is(Type::List));
+	}
+
+	SECTION("::size") {
+		REQUIRE(7 == src->size());
+		REQUIRE(0 == src->next("str")->size());
+		REQUIRE(2 == src->next("list")->size());
+	}
+
+	SECTION("::has") {
+		REQUIRE(src->has("nil"));
+		REQUIRE(src->has("b_t"));
+		REQUIRE(src->has("b_f"));
+		REQUIRE(src->has("int"));
+		REQUIRE(src->has("num"));
+		REQUIRE(src->has("str"));
+		REQUIRE(src->has("list"));
+		REQUIRE(src->next("list")->has(1));
+
+		REQUIRE(!src->has("not_exists"));
+		REQUIRE(!src->next("list")->has(42));
+	}
+
+	SECTION("::get") {
+		REQUIRE(eq(src->next("nil"), StorageOf<Type::Nil>(nullptr)));
+		REQUIRE(eq(src->next("b_t"), StorageOf<Type::Bool>(true)));
+		REQUIRE(eq(src->next("b_f"), StorageOf<Type::Bool>(false)));
+		REQUIRE(eq(src->next("int"), StorageOf<Type::Int>(42)));
+		REQUIRE(eq(src->next("num"), StorageOf<Type::Num>(3.14)));
+		REQUIRE(eq(src->next("str"), StorageOf<Type::Str>("hypnos")));
+
+		REQUIRE(eq(src->next("list")->next(0)->next("int"), StorageOf<Type::Int>(42)));
+		REQUIRE(eq(src->next("list")->next(0)->next("num"), StorageOf<Type::Num>(3.14)));
+		REQUIRE(eq(src->next("list")->next(0)->next("str"), StorageOf<Type::Str>("hypnos")));
+
+		REQUIRE(eq(src->next("list")->next(1)->next("int"), StorageOf<Type::Int>(1955)));
+		REQUIRE(eq(src->next("list")->next(1)->next("num"), StorageOf<Type::Num>(2.718)));
+		REQUIRE(eq(src->next("list")->next(1)->next("str"), StorageOf<Type::Str>("somnus")));
+	}
+
+	SECTION("::set") {
+		REQUIRE((src->next("b_t")->set(StorageOf<Type::Bool>(false)), eq(src->next("b_t"), StorageOf<Type::Bool>(false))));
+		REQUIRE((src->next("b_f")->set(StorageOf<Type::Bool>(true)), eq(src->next("b_f"), StorageOf<Type::Bool>(true))));
+		REQUIRE((src->next("int")->set(StorageOf<Type::Int>(74)), eq(src->next("int"), StorageOf<Type::Int>(74))));
+		REQUIRE((src->next("num")->set(StorageOf<Type::Num>(2.718)), eq(src->next("num"), StorageOf<Type::Num>(2.718))));
+		REQUIRE((src->next("str")->set(StorageOf<Type::Str>("somnus")), eq(src->next("str"), StorageOf<Type::Str>("somnus"))));
+	}
+
+	SECTION("type conversion") {
+		REQUIRE(src->next("int")->is(Type::Int));
+
+		SECTION("to scalar") {
+			REQUIRE(!src->next("int")->is(Type::Bool));
+
+			src->next("int")->set(true);
+			REQUIRE(!src->next("int")->is(Type::Int));
+			REQUIRE(src->next("int")->is(Type::Bool));
+		}
+
+		SECTION("to map") {
+			REQUIRE(!src->next("int")->is(Type::Map));
+
+			src->next("int")->next("_");
+			REQUIRE(!src->next("int")->is(Type::Int));
+			REQUIRE(src->next("int")->is(Type::Map));
+		}
+
+		SECTION("to list") {
+			REQUIRE(!src->next("int")->is(Type::List));
+
+			auto next = src->next("int");
+			next->next(42);
+			REQUIRE(!next->is(Type::Int));
+			REQUIRE(next->is(Type::List));
+		}
+	}
+
+	SECTION("immutability") {
+		REQUIRE(!src->has("a"));
+		REQUIRE(nullptr == std::as_const(*src).next("a"));
+		REQUIRE(!src->has("a"));
+	}
+}
+
 TEST_CASE("Source::Entry") {
 	using namespace cray;
 	using Entry = Source::Entry;
+	using _     = Entry::MapValueType;
 
 	StorageOf<Type::Nil>  value_nil;
 	StorageOf<Type::Bool> value_true  = false;
@@ -129,8 +256,6 @@ TEST_CASE("Source::Entry") {
 	}
 
 	SECTION("Map") {
-		using _ = Entry::MapValueType;
-
 		auto const entry = Entry({
 		    _{"a", nullptr},
 		    _{"b", true},
@@ -190,8 +315,6 @@ TEST_CASE("Source::Entry") {
 	}
 
 	SECTION("Composite") {
-		using _ = Entry::MapValueType;
-
 		auto const entry = Entry({
 		    _{"arr", Entry({"foo", true, 21})},
 		    _{
@@ -242,6 +365,26 @@ TEST_CASE("Source::Entry") {
 		auto const nested_map = entry.source->next("nested_map");
 		REQUIRE(eq(nested_map->next("age"), StorageOf<Type::Int>(28)));
 		REQUIRE(eq(nested_map->next("name"), StorageOf<Type::Str>("lesomnus")));
+	}
+
+	SECTION("Source") {
+		source_test([] {
+			return Source::make({
+			    _{"nil", nullptr},
+			    _{"b_t", true},
+			    _{"b_f", false},
+			    _{"int", 42},
+			    _{"num", 3.14},
+			    _{"str", "hypnos"},
+			    _{
+			        "list",
+			        {
+			            {_{"int", 42}, _{"num", 3.14}, _{"str", "hypnos"}},
+			            {_{"int", 1955}, _{"num", 2.718}, _{"str", "somnus"}},
+			        },
+			    },
+			});
+		});
 	}
 }
 
@@ -329,4 +472,32 @@ TEST_CASE("Source::make") {
 		REQUIRE(nullptr == std::as_const(*source).next("name"));
 		REQUIRE(nullptr == std::as_const(*source).next(42));
 	}
+}
+
+TEST_CASE("YamlSource") {
+	using namespace cray;
+
+	constexpr auto* data = R"(
+nil: ~
+b_t: true
+b_f: false
+int: 42
+num: 3.14
+str: hypnos
+list:
+  -
+    int: 42
+    num: 3.14
+    str: hypnos
+  -
+    int: 1955
+    num: 2.718
+    str: somnus
+)";
+
+	std::stringstream in(data);
+
+	source_test([&in] {
+		return load::fromYaml(in);
+	});
 }

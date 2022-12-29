@@ -57,6 +57,14 @@ TEST_CASE("IsOptional") {
 TEST_CASE("Reference") {
 	using namespace cray;
 
+	STATIC_REQUIRE(Reference::IsIndex<std::size_t>);
+	STATIC_REQUIRE(not Reference::IsIndex<decltype(42)>);
+	STATIC_REQUIRE(not Reference::IsIndex<std::string>);
+
+	STATIC_REQUIRE(Reference::IsKey<std::string>);
+	STATIC_REQUIRE(not Reference::IsKey<decltype("key")>);
+	STATIC_REQUIRE(not Reference::IsKey<decltype(42)>);
+
 	REQUIRE(Reference(42).isIndex());
 	REQUIRE(42 == Reference(42).index());
 
