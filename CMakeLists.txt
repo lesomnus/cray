@@ -46,6 +46,7 @@ add_library(
 		include/cray/types.hpp
 		include/cray.hpp
 
+		src/report/json-schema.cpp
 		src/report/yaml.cpp
 		src/source/entry.cpp
 		src/source/null.cpp

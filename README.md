@@ -60,6 +60,9 @@ int main(int argc, char*[] argv) {
 
 	std::ofstream out("workflow.yaml");
 	report::asYaml(out, node);
+	
+	std::ofstream out("workflow.schema.yaml");
+	report::asJsonSchema(out, node);
 
 	if(!node.ok()){
 		// There is a field that does not satisfy the condition or has the wrong type.
@@ -104,4 +107,45 @@ jobs:
       - 
         name: Test
         run: build && test
+```
+
+And you can have JSON schema:
+
+> This is a short result. Full results can be found at [tests/src/example-report.cpp](tests/src/example-report.cpp).
+
+```json
+{
+	"type": "object",
+	"required": [
+		"name",
+		"on",
+		"jobs"
+	],
+	"properties": {
+		"name": {
+			"type": "string",
+			"title": "Name",
+			"description": "The name of your workflow."
+		},
+		"run-name": {
+			"type": "string",
+			"title": "Run Name",
+			"description": "The name for workflow runs generated from the workflow."
+		},
+		"on": {
+			"type": "array",
+			"items": {
+				"type": "string",
+				"enum": [
+					"push",
+					"pull_request",
+					"workflow_dispatch"
+				]
+			}
+		},
+		"jobs": {
+			...
+		}
+	}
+}
 ```

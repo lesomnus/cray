@@ -10,9 +10,6 @@
 
 namespace cray {
 
-// TODO: Implement reporter registry?
-// TODO: Reporter builder interface?
-
 class Reporter {
    public:
 	void report(std::ostream& dst, Node const node) const {
@@ -30,6 +27,8 @@ namespace report {
 
 void asYaml(std::ostream& dst, Node node);
 
-}
+void asJsonSchema(std::ostream& dst, Node node);
+
+}  // namespace report
 
 }  // namespace cray

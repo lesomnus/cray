@@ -69,12 +69,13 @@ jobs:
 
 	REQUIRE(doc.ok());
 
-	std::stringstream out;
-	out << std::endl;
-	report::asYaml(out, doc);
-	out << std::endl;
+	{
+		std::stringstream out;
+		out << std::endl;
+		report::asYaml(out, doc);
+		out << std::endl;
 
-	constexpr auto* expected = R"(
+		constexpr auto* expected = R"(
 # Name
 # | The name of your workflow.
 name: Test
@@ -95,7 +96,87 @@ jobs:
         run: build && test
 )";
 
-	testing::requireReportEq(expected, std::move(out).str());
+		testing::requireReportEq(expected, std::move(out).str());
+	}
+
+	{
+		std::stringstream out;
+		out << std::endl;
+		report::asJsonSchema(out, doc);
+		out << std::endl;
+
+		constexpr auto* expected = R"(
+{
+	"type": "object",
+	"required": [
+		"name",
+		"on",
+		"jobs"
+	],
+	"properties": {
+		"name": {
+			"type": "string",
+			"title": "Name",
+			"description": "The name of your workflow."
+		},
+		"run-name": {
+			"type": "string",
+			"title": "Run Name",
+			"description": "The name for workflow runs generated from the workflow."
+		},
+		"on": {
+			"type": "array",
+			"items": {
+				"type": "string",
+				"enum": [
+					"push",
+					"pull_request",
+					"workflow_dispatch"
+				]
+			}
+		},
+		"jobs": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "object",
+				"required": [
+					"runs-on",
+					"steps"
+				],
+				"properties": {
+					"runs-on": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					},
+					"steps": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"required": [
+								"name",
+								"run"
+							],
+							"properties": {
+								"name": {
+									"type": "string"
+								},
+								"run": {
+									"type": "string"
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+)";
+
+		testing::requireReportEq(expected, std::move(out).str());
+	}
 
 	REQUIRE("Test" == name);
 	REQUIRE(!run_name.has_value());

@@ -2,11 +2,13 @@
 
 #include <cassert>
 #include <concepts>
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <string>
 #include <utility>
 
+#include "cray/detail/interval.hpp"
 #include "cray/detail/ordered_set.hpp"
 #include "cray/source.hpp"
 #include "cray/types.hpp"
@@ -262,6 +264,13 @@ class KeyedPropHolder: public virtual Prop {
 	}
 
 	OrderedSet<std::string> required_keys;
+};
+
+class IndexedPropHolder: public virtual Prop {
+   public:
+	using Prop::Prop;
+
+	Interval<std::size_t> size;
 };
 
 template<Type T>

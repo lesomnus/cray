@@ -14,15 +14,10 @@
 namespace cray {
 namespace detail {
 
-class MonoListAccessor {
-   public:
-	virtual Interval<std::size_t> const& getSize() const = 0;
-};
-
 template<typename V, std::derived_from<CodecProp<V>> P>
 class MonoListProp
-    : public CodecProp<std::vector<V>>
-    , public MonoListAccessor {
+    : public IndexedPropHolder
+    , public CodecProp<std::vector<V>> {
    public:
 	using StorageType     = std::vector<V>;
 	using NextPropType    = P;
@@ -118,13 +113,7 @@ class MonoListProp
 		return this->next_prop;
 	}
 
-	Interval<std::size_t> const& getSize() const override {
-		return this->size;
-	}
-
 	std::shared_ptr<CodecProp<NextStorageType>> next_prop;
-
-	Interval<std::size_t> size;
 
    protected:
 	void encodeInto_(Source& dst, StorageType const& value) const {

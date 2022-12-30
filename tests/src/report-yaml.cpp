@@ -8,10 +8,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <cray/node.hpp>
-#include <cray/props.hpp>
-#include <cray/report.hpp>
-#include <cray/source.hpp>
+#include <cray.hpp>
 
 template<typename T>
 struct Holder {

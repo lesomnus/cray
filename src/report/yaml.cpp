@@ -273,7 +273,7 @@ struct ReportContext {
 		case Type::Num: this->annotateNumeric(dynamic_cast<NumericProp<Type::Num> const&>(prop), on_annotate); return;
 		case Type::Str: this->annotate(dynamic_cast<StrProp const&>(prop), on_annotate); return;
 		case Type::Map: return;
-		case Type::List: this->annotateList(prop, on_annotate); return;
+		case Type::List: this->annotate(dynamic_cast<IndexedPropHolder const&>(prop), on_annotate); return;
 
 		default: throw std::runtime_error("invalid type");
 		}
@@ -341,21 +341,12 @@ struct ReportContext {
 		}
 	}
 
-	void annotateList(Prop const& prop, std::function<void()> const& on_annotate) {
-		if(auto const* p = dynamic_cast<MonoListAccessor const*>(&prop); p != nullptr) {
-			annotateMonoList(prop, on_annotate);
-		} else {
-			throw std::runtime_error("not implemented");
-		}
-	}
-
-	void annotateMonoList(Prop const& prop, std::function<void()> const& on_annotate) {
-		auto const& accessor = dynamic_cast<MonoListAccessor const&>(prop);
-		if(auto const& size = accessor.getSize(); !size.isAll()) {
+	void annotate(IndexedPropHolder const& prop, std::function<void()> const& on_annotate) {
+		if(!prop.size.isAll()) {
 			on_annotate();
 			this->tab();
 			this->dst << "# • { |x| ∈ W | ";
-			write(this->dst, size, "|x|");
+			write(this->dst, prop.size, "|x|");
 			this->dst << " }" << std::endl;
 		}
 	}
