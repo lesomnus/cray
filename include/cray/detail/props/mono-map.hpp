@@ -15,15 +15,10 @@
 namespace cray {
 namespace detail {
 
-class MonoMapPropAccessor {
-   public:
-	virtual OrderedSet<std::string> const& getRequiredKeys() const = 0;
-};
-
 template<typename V, std::derived_from<CodecProp<V>> P>
 class MonoMapProp
     : public CodecProp<std::unordered_map<std::string, V>>
-    , public MonoMapPropAccessor {
+    , public KeyedPropHolder {
    public:
 	using StorageType     = std::unordered_map<std::string, V>;
 	using NextPropType    = P;
@@ -102,15 +97,6 @@ class MonoMapProp
 		return true;
 	}
 
-	void markRequired(Reference const& ref) override {
-		this->required_keys.insert(ref.key());
-	}
-
-	bool needs(Reference const& ref) const override {
-		auto it = std::find(this->required_keys.begin(), this->required_keys.end(), ref.key());
-		return it != this->required_keys.end();
-	}
-
 	void assign(Reference const& ref, std::shared_ptr<Prop> prop) override {
 		auto next = std::dynamic_pointer_cast<CodecProp<NextStorageType>>(std::move(prop));
 		if(next == nullptr) {
@@ -124,12 +110,21 @@ class MonoMapProp
 		return this->next_prop;
 	}
 
-	OrderedSet<std::string> const& getRequiredKeys() const override {
-		return required_keys;
+	bool isConcrete() const override {
+		return false;
+	}
+
+	void forEachProps(Source const& source, std::function<void(std::string const&, std::shared_ptr<Prop> const&)> const& functor) const override {
+		this->source->keys([&](std::string const& key) {
+			this->next_prop->source = source.next(key);
+			this->next_prop->ref    = key;
+
+			functor(key, this->next_prop);
+			return true;
+		});
 	}
 
 	std::shared_ptr<CodecProp<NextStorageType>> next_prop;
-	OrderedSet<std::string>                     required_keys;
 
    protected:
 	void encodeInto_(Source& dst, StorageType const& value) const {

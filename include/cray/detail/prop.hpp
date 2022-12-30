@@ -7,6 +7,7 @@
 #include <string>
 #include <utility>
 
+#include "cray/detail/ordered_set.hpp"
 #include "cray/source.hpp"
 #include "cray/types.hpp"
 
@@ -161,6 +162,12 @@ class CodecProp: public virtual Prop {
 	}
 
 	inline bool decode(StorageType& value) const {
+		if(this->source == nullptr) {
+			// Note that constant Source does not generate temporal source for the next
+			// so it can be `nullptr` while navigating (usually while reporting).
+			return false;
+		}
+
 		return this->decodeFrom(*this->source, value);
 	}
 
@@ -198,11 +205,11 @@ class RootProp: public Prop {
 	}
 
 	bool ok() const override {
-		if(this->next == nullptr) [[unlikely]] {
+		if(this->next_prop == nullptr) [[unlikely]] {
 			return false;
 		}
 
-		return this->next->ok();
+		return this->next_prop->ok();
 	}
 
 	bool hasDefault() const override {
@@ -213,29 +220,53 @@ class RootProp: public Prop {
 	}
 
 	void markRequired(Reference const& ref) override {
-		this->next_is_required = true;
+		this->next_prop_is_required = true;
 	};
 
 	bool needs(Reference const& ref) const override {
-		return this->next_is_required;
+		return this->next_prop_is_required;
 	}
 
 	void assign(Reference const& ref, std::shared_ptr<Prop> prop) override {
-		prop->source           = this->source;
-		this->next             = std::move(prop);
-		this->next_is_required = false;
+		prop->source                = this->source;
+		this->next_prop             = std::move(prop);
+		this->next_prop_is_required = false;
 	}
 
 	std::shared_ptr<Prop> at(Reference const& ref) const override {
-		return this->next;
+		return this->next_prop;
 	}
 
-	std::shared_ptr<Prop> next;
-	bool                  next_is_required;
+	std::shared_ptr<Prop> next_prop;
+	bool                  next_prop_is_required;
+};
+
+class KeyedPropHolder: public virtual Prop {
+   public:
+	using Prop::Prop;
+
+	void markRequired(Reference const& ref) override {
+		this->required_keys.insert(ref.key());
+	};
+
+	bool needs(Reference const& ref) const override {
+		return this->required_keys.contains(ref.key());
+	}
+
+	virtual bool isConcrete() const = 0;
+
+	virtual void forEachProps(Source const& source, std::function<void(std::string const&, std::shared_ptr<Prop> const&)> const& functor) const = 0;
+
+	void forEachProps(std::function<void(std::string const&, std::shared_ptr<Prop> const&)> const& functor) const {
+		this->forEachProps(*this->source, functor);
+	}
+
+	OrderedSet<std::string> required_keys;
 };
 
 template<Type T>
-struct PropOf_ { };
+struct PropOf_ {
+};
 
 template<Type T>
 using PropOf = PropOf_<T>::type;

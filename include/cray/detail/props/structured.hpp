@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cassert>
 #include <concepts>
 #include <functional>
 #include <memory>
@@ -9,9 +8,8 @@
 #include <utility>
 #include <vector>
 
-#include "cray/detail/ordered_map.hpp"
-#include "cray/detail/ordered_set.hpp"
 #include "cray/detail/prop.hpp"
+#include "cray/detail/props/poly-map.hpp"
 #include "cray/types.hpp"
 
 namespace cray {
@@ -96,17 +94,10 @@ class FieldProp
 	}
 };
 
-class StructuredPropAccessor {
-   public:
-	virtual std::size_t getSize() const = 0;
-
-	virtual void getNextProps(std::function<bool(std::string const&, std::shared_ptr<Prop> const&)> const& functor) const = 0;
-};
-
 template<typename V>
 class StructuredProp
-    : public CodecProp<V>
-    , public StructuredPropAccessor {
+    : public BasicPolyMapProp<CodecProp<V>>
+    , public CodecProp<V> {
    public:
 	using StorageType = V;
 
@@ -179,81 +170,22 @@ class StructuredProp
 
 	using CodecProp<V>::CodecProp;
 
-	Type type() const {
-		return Type::Map;
-	}
-
-	std::string name() const {
+	std::string name() const override {
 		return this->annotation.title;
 	}
 
-	bool ok() const override {
-		if(!this->source->is(Type::Map)) {
-			return !this->isNeeded() || this->hasDefault();
-		}
-
-		for(auto const& [key, codec]: this->codecs) {
-			codec->source = this->source->next(key);
-			if(codec->ok()) {
-				continue;
-			}
-
-			return false;
-		}
-
-		return true;
-	}
-
-	void markRequired(Reference const& ref) override {
-		this->required_keys.insert(ref.key());
-	};
-
-	bool needs(Reference const& ref) const {
-		return this->required_keys.contains(ref.key());
-	}
-
-	void assign(Reference const& ref, std::shared_ptr<Prop> prop) override {
-		auto codec = std::dynamic_pointer_cast<CodecProp<V>>(std::move(prop));
-		assert(codec != nullptr);
-
-		auto const& key = ref.key();
-		this->codecs.insert_or_assign(key, std::move(codec));
-	}
-
-	std::shared_ptr<Prop> at(Reference const& ref) const override {
-		auto const it = this->codecs.find(ref.key());
-		if(it == this->codecs.cend()) {
-			return nullptr;
-		} else {
-			return it->second;
-		}
-	}
-
-	std::size_t getSize() const override {
-		return this->codecs.size();
-	}
-
-	void getNextProps(std::function<bool(std::string const&, std::shared_ptr<Prop> const&)> const& functor) const override {
-		for(auto const& [key, codec]: codecs) {
-			functor(key, codec);
-		}
-	}
-
-	OrderedMap<std::string, std::shared_ptr<CodecProp<StorageType>>> codecs;
-	OrderedSet<std::string>                                          required_keys;
-
    protected:
 	void encodeInto_(Source& dst, StorageType const& value) const override {
-		for(auto const& [key, codec]: this->codecs) {
-			codec->encodeInto(dst, value);
+		for(auto const& [key, next_prop]: this->next_props) {
+			next_prop->encodeInto(dst, value);
 		}
 	}
 
 	bool decodeFrom_(Source const& src, StorageType& value) const override {
-		for(auto const& [key, codec]: this->codecs) {
+		for(auto const& [key, next_prop]: this->next_props) {
 			// No need to src.next(key) since codec knows their ref and
 			// will navigate the Source with that ref.
-			if(codec->decodeFrom(src, value)) {
+			if(next_prop->decodeFrom(src, value)) {
 				continue;
 			}
 

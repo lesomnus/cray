@@ -17,18 +17,6 @@ namespace cray {
 namespace detail {
 namespace {
 
-template<std::integral T>
-struct ScopedIncrement {
-	ScopedIncrement(T& value)
-	    : value(++value) { }
-
-	~ScopedIncrement() {
-		--this->value;
-	}
-
-	T& value;
-};
-
 template<typename T>
 void write(std::ostream& o, Interval<T> interval, std::string const& var = "x") {
 	if(interval.min.has_value()) {
@@ -46,16 +34,17 @@ void write(std::ostream& o, Interval<T> interval, std::string const& var = "x") 
 
 struct ReportContext {
 	void report(Prop const& prop) {
-		switch(prop.type()) {
+		const auto t = prop.type();
+		switch(t) {
 		case Type::Nil: this->reportScalarProp<Type::Nil>(prop); return;
 		case Type::Bool: this->reportScalarProp<Type::Bool>(prop); return;
 		case Type::Int: this->reportScalarProp<Type::Int>(prop); return;
 		case Type::Num: this->reportScalarProp<Type::Num>(prop); return;
 		case Type::Str: this->reportScalarProp<Type::Str>(prop); return;
-		case Type::Map: this->reportMap(prop); return;
+		case Type::Map: this->report(dynamic_cast<KeyedPropHolder const&>(prop)); return;
 		case Type::List: this->reportList(prop); return;
 
-		default: throw std::runtime_error("invalid type");
+		default: throw InvalidTypeError(t);
 		}
 	}
 
@@ -87,87 +76,21 @@ struct ReportContext {
 		}
 	}
 
-	void reportMap(Prop const& prop) {
-		auto i = ScopedIncrement(this->level);
+	void report(KeyedPropHolder const& prop) {
+		auto const s = this->scope();
 		if(this->level > 0) {
 			this->dst << std::endl;
 		}
 
-		if(auto const* p = dynamic_cast<PolyMpaProp const*>(&prop); p != nullptr) {
-			report(*p);
-		} else if(dynamic_cast<MonoMapPropAccessor const*>(&prop) != nullptr) {
-			reportMonoMap(prop);
+		if(prop.isConcrete()) {
+			reportPolyMap(prop);
 		} else {
-			reportStructuredMap(prop);
+			reportMonoMap(prop);
 		}
 	}
 
-	void report(PolyMpaProp const& prop) {
-		auto i = prop.next_props.size();
-		for(auto const& [key, next_prop]: prop.next_props) {
-			bool annotated = false;
-			annotate(*next_prop, [&] { annotated = true; });
-			this->tab();
-			this->dst << key << ": ";
-			this->report(*next_prop);
-
-			if(--i > 0) {
-				this->dst << std::endl;
-
-				if(annotated) {
-					this->dst << std::endl;
-				}
-			}
-		}
-	}
-
-	void reportMonoMap(Prop const& prop) {
-		auto const next_prop = prop.at(Reference());
-		if(next_prop == nullptr) {
-			return;
-		}
-
-		this->annotate(*next_prop, [] {});
-
-		// Check required fields
-		{
-			auto const& accessor      = dynamic_cast<MonoMapPropAccessor const&>(prop);
-			auto const& required_keys = accessor.getRequiredKeys();
-
-			for(auto const& key: required_keys) {
-				if(prop.source->has(key)) {
-					continue;
-				}
-
-				this->tab();
-				this->dst << key << ":   # <" << next_prop->name() << ">  ⚠️ REQUIRED";
-				this->dst << std::endl;
-			}
-		}
-
-		std::size_t cnt_remain = prop.source->size();
-		if(cnt_remain == 0) {
-			this->tab();
-			this->dst << "# key: <" << next_prop->name() << ">";
-		}
-		prop.source->keys([&](std::string const& key) {
-			this->tab();
-			this->dst << key << ": ";
-
-			next_prop->source = prop.source->next(key);
-			next_prop->ref    = key;
-			this->report(*next_prop);
-
-			if(--cnt_remain > 0) {
-				this->dst << std::endl;
-			}
-
-			return true;
-		});
-	}
-
-	void reportStructuredMap(Prop const& prop) {
-		auto const& p = dynamic_cast<StructuredPropAccessor const&>(prop);
+	void reportPolyMap(KeyedPropHolder const& prop) {
+		auto const& p = dynamic_cast<KeyedPropHolder const&>(prop);
 
 		std::shared_ptr<Source> source;
 		if(prop.hasDefault() && !prop.source->is(Type::Map)) {
@@ -178,18 +101,20 @@ struct ReportContext {
 			source = prop.source;
 		}
 
-		std::size_t cnt_remain = p.getSize();
-		p.getNextProps([&](std::string const& key, std::shared_ptr<Prop> const& next_prop) {
-			this->annotate(*next_prop, [] {});
+		bool is_first = true;
+		p.forEachProps(*source, [&](std::string const& key, std::shared_ptr<Prop> const& next_prop) {
+			if(!std::exchange(is_first, false)) {
+				this->dst << std::endl;
+			}
+
+			bool is_annotated = false;
+			annotate(*next_prop, [&] { is_annotated = true; });
 
 			this->tab();
 			this->dst << key << ": ";
-
-			next_prop->source = source->next(key);
-			next_prop->ref    = key;
 			this->report(*next_prop);
 
-			if(--cnt_remain > 0) {
+			if(is_annotated) {
 				this->dst << std::endl;
 			}
 
@@ -197,8 +122,43 @@ struct ReportContext {
 		});
 	}
 
+	void reportMonoMap(KeyedPropHolder const& prop) {
+		auto const next_prop = prop.at(Reference());
+		if(next_prop == nullptr) {
+			return;
+		}
+
+		this->annotate(*next_prop, [] {});
+
+		for(auto const& key: prop.required_keys) {
+			if(prop.source->has(key)) {
+				continue;
+			}
+
+			this->tab();
+			this->dst << key << ":   # <" << next_prop->name() << ">  ⚠️ REQUIRED";
+			this->dst << std::endl;
+		}
+
+		bool is_first = true;
+		prop.forEachProps([&](std::string const& key, std::shared_ptr<Prop> const& next_prop) {
+			if(!std::exchange(is_first, false)) {
+				this->dst << std::endl;
+			}
+
+			this->tab();
+			this->dst << key << ": ";
+			this->report(*next_prop);
+		});
+
+		if(is_first) {
+			this->tab();
+			this->dst << "# key: <" << next_prop->name() << ">";
+		}
+	}
+
 	void reportList(Prop const& prop) {
-		auto i = ScopedIncrement(this->level);
+		auto const s = this->scope();
 
 		reportMonoList(prop);
 	}
@@ -408,8 +368,11 @@ struct ReportContext {
 		this->dst << std::string(this->tab_size * this->level, ' ');
 	}
 
-	void tabOnce() const {
-		this->dst << std::string(this->tab_size, ' ');
+	std::shared_ptr<void> scope() {
+		++this->level;
+		return std::shared_ptr<void>(nullptr, [this](...) {
+			--this->level;
+		});
 	}
 
 	std::ostream& dst;
@@ -417,13 +380,6 @@ struct ReportContext {
 	std::size_t tab_size = 2;
 	int         level    = -1;
 };
-
-}  // namespace
-}  // namespace detail
-
-namespace report {
-
-namespace {
 
 class YamlReporter: public Reporter {
    protected:
@@ -435,9 +391,12 @@ class YamlReporter: public Reporter {
 };
 
 }  // namespace
+}  // namespace detail
+
+namespace report {
 
 void asYaml(std::ostream& dst, Node node) {
-	YamlReporter{}.report(dst, node);
+	detail::YamlReporter{}.report(dst, node);
 }
 
 }  // namespace report

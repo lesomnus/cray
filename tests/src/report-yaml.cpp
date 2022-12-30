@@ -323,8 +323,10 @@ TEST_CASE("PolyMapProp") {
 		expected = R"(
 # Title A
 a: 3
+
 # Title B
 b:   # <Integer>
+
 )";
 	}
 

@@ -34,17 +34,8 @@ class BasicIntProp: public BasicNumericProp<V> {
 			return this->prop_->get();
 		}
 
-		// clang-format off
-		inline operator short()     const { return this->get_<short    >(); }
-		inline operator int()       const { return this->get_<int      >(); }
-		inline operator long()      const { return this->get_<long     >(); }
-		inline operator long long() const { return this->get_<long long>(); }
-
-		inline operator unsigned short()     const { return this->get_<unsigned short    >(); }
-		inline operator unsigned int()       const { return this->get_<unsigned int      >(); }
-		inline operator unsigned long()      const { return this->get_<unsigned long     >(); }
-		inline operator unsigned long long() const { return this->get_<unsigned long long>(); }
-		// clang-format on
+		template<std::integral V_>
+		inline operator V_() const { return this->get_<V_>(); }
 
 	   private:
 		template<typename V_>

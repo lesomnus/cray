@@ -66,6 +66,8 @@ int main(int argc, char*[] argv) {
 		return -1;
 	}
 
+	// name == "Test"
+	// jobs["test"].steps[0].run == "build && test"
 	// ...
 }
 ```

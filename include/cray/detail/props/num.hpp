@@ -34,14 +34,11 @@ class BasicNumProp: public BasicNumericProp<V> {
 			return this->prop_->get();
 		}
 
-		// clang-format off
-		inline operator float()       const { return this->get_<float      >(); }
-		inline operator double()      const { return this->get_<double     >(); }
-		inline operator long double() const { return this->get_<long double>(); }
-		// clang-format on
+		template<std::floating_point V_>
+		inline operator V_() const { return this->get_<V_>(); }
 
 	   private:
-		template<typename V_>
+		template<std::floating_point V_>
 		inline V_ get_() const {
 			return static_cast<V_>(this->prop_->get());
 		}
