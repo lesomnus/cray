@@ -76,6 +76,7 @@ jobs:
 		out << std::endl;
 
 		constexpr auto* expected = R"(
+---
 # Name
 # | The name of your workflow.
 name: Test

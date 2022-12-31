@@ -12,11 +12,6 @@
 
 #include "testing.hpp"
 
-template<typename T>
-struct Holder {
-	T value;
-};
-
 class ReportTester {
    public:
 	ReportTester() = default;
@@ -80,6 +75,20 @@ TEST_CASE("Annotation") {
 ---
 # Title
 # | Description
+42
+)";
+	}
+
+	SECTION("multiline description") {
+		annotation = Annotation{
+		    .description = "aaa\nbbb\nccc",
+		};
+
+		t.expected = R"(
+---
+# | aaa
+#   bbb
+#   ccc
 42
 )";
 	}
@@ -301,6 +310,50 @@ hypnos
 )";
 	}
 
+	SECTION("multiline") {
+		t.node = Node(Source::make(R"(aaa
+bbb
+
+ccc
+
+
+)"));
+		t.node.is<Type::Str>();
+
+		t.expected = R"(
+---
+|
+aaa
+bbb
+
+ccc
+
+
+)";
+	}
+
+	SECTION("multiline default value") {
+		t.node = Node(Source::null());
+		t.node.is<Type::Str>().defaultValue(R"(aaa
+bbb
+
+ccc
+
+
+)");
+
+		t.expected = R"(
+---
+
+# aaa
+# bbb
+# 
+# ccc
+# 
+# 
+)";
+	}
+
 	SECTION("interval") {
 		describer.length(3 < x <= 5);
 
@@ -320,6 +373,10 @@ TEST_CASE("PolyMapProp") {
 
 	ReportTester t;
 	t.node = Node(Source::make({
+	    _{"foo",
+	      {
+	          _{"bar", 42},
+	      }},
 	    _{"a", 3},
 	    _{"b",
 	      {
@@ -355,21 +412,21 @@ c:   # <Integer>  ⚠️ REQUIRED
 )";
 	}
 
-	// 	SECTION("nested") {
-	// 		Node foo = node["foo"];
-	// 		foo["bar"].is<Type::Int>();
-	// 		foo["baz"].is<Type::Int>();
-	// 		foo["a"]["b"].is<Type::Int>();
+	SECTION("nested") {
+		Node foo = t.node["foo"];
+		foo["bar"].is<Type::Int>();
+		foo["baz"].is<Type::Int>();
+		foo["a"]["b"].is<Type::Int>();
 
-	// 		t.expected = R"(
-	// ---
-	// foo:
-	//   bar: 42
-	//   baz:   # <Integer>
-	//   a:
-	//     b:   # <Integer>
-	// )";
-	// 	}
+		t.expected = R"(
+---
+foo: 
+  bar: 42
+  baz:   # <Integer>
+  a: 
+    b:   # <Integer>
+)";
+	}
 
 	t.done();
 }
@@ -396,7 +453,8 @@ a: 3
 
 		t.expected = R"(
 ---
-# key: <Integer>
+# key:   # <Integer>
+# ...
 )";
 	}
 
@@ -419,7 +477,8 @@ a: 3
 ---
 a:   # <Integer>  ⚠️ REQUIRED
 b:   # <Integer>  ⚠️ REQUIRED
-# key: <Integer>
+# key:   # <Integer>
+# ...
 )";
 	}
 
@@ -441,7 +500,10 @@ a:   # <Integer>
 
 			t.expected = R"(
 ---
-# key: <Map of Integer>
+# key: 
+#   # key:   # <Integer>
+#   # ...
+# ...
 )";
 		}
 
@@ -491,7 +553,10 @@ B:
 
 		t.expected = R"(
 ---
-# key: <List of Integer>
+# key: 
+#   # -   # <Integer>
+#   # - ...
+# ...
 )";
 	}
 
@@ -507,7 +572,8 @@ TEST_CASE("StructuredMapProp") {
 	std::string expected;
 
 	SECTION("no data") {
-		using H = Holder<int>;
+		using H = testing::Holder<int>;
+
 		t.node.is<Type::Map>().to<H>()
 		    | field("int", &H::value);
 
@@ -543,6 +609,21 @@ list: [2, 3, 5, 7, 11]
 )";
 	}
 
+	SECTION("of StructuredProp") {
+		using I = testing::Holder<int>;
+		using H = testing::Holder<I>;
+
+		t.node.is<Type::Map>().to<H>()
+		    | (field("foo", &H::value)
+		       | field("bar", &I::value));
+
+		t.expected = R"(
+---
+foo: 
+  bar:   # <Integer>  ⚠️ REQUIRED
+)";
+	}
+
 	t.done();
 }
 
@@ -561,7 +642,7 @@ TEST_CASE("MonoListProp") {
 
 		t.expected = R"(
 ---
-# - <Integer>
+# -   # <Integer>
 # - ...
 )";
 	}
@@ -600,7 +681,9 @@ TEST_CASE("MonoListProp") {
 
 			t.expected = R"(
 ---
-# - <List of Integer>
+# - 
+#   # -   # <Integer>
+#   # - ...
 # - ...
 )";
 		}
@@ -629,7 +712,9 @@ TEST_CASE("MonoListProp") {
 
 			t.expected = R"(
 ---
-# - <Map of Integer>
+# - 
+#   # key:   # <Integer>
+#   # ...
 # - ...
 )";
 		}
@@ -689,7 +774,10 @@ dish:
   num:   # <Number>  ⚠️ REQUIRED
   str:   # <String>  ⚠️ REQUIRED
   extrinsics: 
-    # key: <List of Number>
+    # key: 
+    #   # -   # <Number>
+    #   # - ...
+    # ...
 )";
 	}
 

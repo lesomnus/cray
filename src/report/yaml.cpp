@@ -4,6 +4,7 @@
 #include <iostream>
 #include <iterator>
 #include <memory>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 
@@ -69,11 +70,33 @@ struct ReportContext {
 			return;
 		}
 
-		if(p.default_value.has_value() && (*p.default_value == *value)) {
-			dst << "# ";
+		bool const is_default_value = p.default_value.has_value() && (*p.default_value == *value);
+
+		if constexpr(T == Type::Str) {
+			if(value->find('\n') != std::string::npos) {
+				if(!is_default_value) {
+					this->dst << "|";
+				}
+
+				std::istringstream s(*value);
+				std::string        line;
+				while(std::getline(s, line)) {
+					this->enter();
+
+					if(is_default_value) {
+						this->dst << "# ";
+					}
+					this->dst << line;
+				}
+
+				return;
+			}
 		}
 
-		dst << *value;
+		if(is_default_value) {
+			this->dst << "# ";
+		}
+		this->dst << *value;
 	}
 
 	void report(KeyedPropHolder const& prop) {
@@ -141,8 +164,15 @@ struct ReportContext {
 		});
 
 		if(cnt == 0) {
-			this->enter();
-			this->dst << "# key: <" << next_prop->name() << ">";
+			this->withComment([&] {
+				next_prop->source = Source::null();
+
+				this->enter();
+				this->dst << "key: ";
+				this->report(*next_prop);
+				this->enter();
+				this->dst << "...";
+			});
 		}
 	}
 
@@ -170,10 +200,15 @@ struct ReportContext {
 		}
 
 		if(source->isEmpty()) {
-			this->enter();
-			this->dst << "# - <" << next_prop->name() << ">";
-			this->enter();
-			this->dst << "# - ...";
+			this->withComment([&] {
+				next_prop->source = Source::null();
+
+				this->enter();
+				this->dst << "- ";
+				this->report(*next_prop);
+				this->enter();
+				this->dst << "- ...";
+			});
 			return;
 		}
 
@@ -240,8 +275,23 @@ struct ReportContext {
 			on_annotate();
 			this->enter();
 
-			// TODO: handle multiline.
-			this->dst << "# | " << annotation.description;
+			if(annotation.description.find('\n') == std::string::npos) {
+				this->dst << "# | " << annotation.description;
+			} else {
+				this->dst << "# | ";
+				bool is_first = true;
+
+				std::istringstream s(annotation.description);
+				std::string        line;
+				while(std::getline(s, line)) {
+					if(!std::exchange(is_first, false)) {
+						this->enter();
+						this->dst << "#   ";
+					}
+
+					this->dst << line;
+				}
+			}
 		}
 	}
 
@@ -344,11 +394,29 @@ struct ReportContext {
 	}
 
 	void tab() const {
-		if(this->level <= 0) {
-			return;
-		}
+		if(this->comment_blocks.empty()) {
+			if(this->level > 0) {
+				this->dst << std::string(this->tab_size * this->level, ' ');
+			}
+		} else {
+			auto const  size = this->comment_blocks.size();
+			std::string t((this->tab_size * this->level) + (2 * size), ' ');
 
-		this->dst << std::string(this->tab_size * this->level, ' ');
+			auto cnt = 0;
+			for(std::size_t cnt = 0; cnt < size; ++cnt) {
+				auto const l = this->comment_blocks.at(cnt);
+
+				t.at((this->tab_size * l) + (2 * cnt)) = '#';
+			}
+
+			this->dst << t;
+		}
+	}
+
+	void withComment(std::function<void()> const& functor) {
+		this->comment_blocks.emplace_back(this->level);
+		functor();
+		this->comment_blocks.pop_back();
 	}
 
 	void enter() {
@@ -358,8 +426,10 @@ struct ReportContext {
 
 	std::ostream& dst;
 
-	std::size_t tab_size = 2;
+	std::size_t tab_size = 2;  // must be positive.
 	int         level    = -1;
+
+	std::vector<int> comment_blocks;
 };
 
 class YamlReporter: public Reporter {

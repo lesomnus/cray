@@ -96,8 +96,11 @@ class MonoListProp
 		return true;
 	}
 
+	bool needs(Reference const& ref) const {
+		return false;
+	}
+
 	void markRequired(Reference const& ref) override {
-		throw InvalidAccessError();
 	}
 
 	void assign(Reference const& ref, std::shared_ptr<Prop> prop) override {

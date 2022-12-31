@@ -252,6 +252,9 @@ class KeyedPropHolder: public virtual Prop {
 	};
 
 	bool needs(Reference const& ref) const override {
+		if(!ref.isKey()) {
+			return false;
+		}
 		return this->required_keys.contains(ref.key());
 	}
 
