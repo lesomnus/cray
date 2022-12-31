@@ -10,9 +10,39 @@
 
 #include <cray.hpp>
 
+#include "testing.hpp"
+
 template<typename T>
 struct Holder {
 	T value;
+};
+
+class ReportTester {
+   public:
+	ReportTester() = default;
+
+	~ReportTester() {
+		if(!this->is_done_) {
+			this->done();
+		}
+	}
+
+	void done() {
+		this->is_done_ = true;
+
+		std::stringstream rst;
+		rst << std::endl;
+		cray::report::asYaml(rst, this->node);
+		rst << std::endl;
+
+		testing::requireReportEq(this->expected, std::move(rst).str());
+	}
+
+	cray::Node  node = cray::Node(cray::Source::null());
+	std::string expected;
+
+   private:
+	bool is_done_ = false;
 };
 
 void requireEq(std::string expected, std::string actual) {
@@ -28,13 +58,14 @@ void requireEq(std::string expected, std::string actual) {
 TEST_CASE("Annotation") {
 	using namespace cray;
 
-	Node node(Source::make(42));
+	ReportTester t;
+	t.node = Node(Source::make(42));
 
-	Annotation  annotation;
-	std::string expected;
+	Annotation annotation;
 
 	SECTION("no annotations") {
-		expected = R"(
+		t.expected = R"(
+---
 42
 )";
 	}
@@ -45,7 +76,8 @@ TEST_CASE("Annotation") {
 		    .description = "Description",
 		};
 
-		expected = R"(
+		t.expected = R"(
+---
 # Title
 # | Description
 42
@@ -57,7 +89,8 @@ TEST_CASE("Annotation") {
 		    .is_deprecated = true,
 		};
 
-		expected = R"(
+		t.expected = R"(
+---
 # ⚠️ DEPRECATED
 42
 )";
@@ -70,7 +103,8 @@ TEST_CASE("Annotation") {
 		    .is_deprecated = true,
 		};
 
-		expected = R"(
+		t.expected = R"(
+---
 # Title
 # ⚠️ DEPRECATED
 # | Description
@@ -78,89 +112,75 @@ TEST_CASE("Annotation") {
 )";
 	}
 
-	node.is<Type::Int>(annotation);
-
-	std::stringstream rst;
-	rst << std::endl;
-	report::asYaml(rst, node);
-	rst << std::endl;
-
-	requireEq(expected, std::move(rst).str());
+	t.node.is<Type::Int>(annotation);
+	t.done();
 }
 
 TEST_CASE("NilProp") {
 	using namespace cray;
 
-	Node node(Source::make(nullptr));
-
-	auto        describer = node.is<Type::Nil>();
-	std::string expected;
+	ReportTester t;
+	t.node.is<Type::Nil>();
 
 	SECTION("no constraints") {
-		expected = R"(
+		t.expected = R"(
+---
 ~
 )";
 	}
 
-	std::stringstream rst;
-	rst << std::endl;
-	report::asYaml(rst, node);
-	rst << std::endl;
-
-	requireEq(expected, std::move(rst).str());
+	t.done();
 }
 
 TEST_CASE("BoolProp") {
 	using namespace cray;
 
-	Node        node;
-	std::string expected;
+	ReportTester t;
+	t.node.is<Type::Nil>();
 
 	SECTION("true") {
-		node = Node(Source::make(true));
-		node.is<Type::Bool>();
+		t.node = Node(Source::make(true));
 
-		expected = R"(
+		t.expected = R"(
+---
 true
 )";
 	}
 
 	SECTION("false") {
-		node = Node(Source::make(false));
-		node.is<Type::Bool>();
+		t.node = Node(Source::make(false));
 
-		expected = R"(
+		t.expected = R"(
+---
 false
 )";
 	}
 
-	std::stringstream rst;
-	rst << std::endl;
-	report::asYaml(rst, node);
-	rst << std::endl;
-
-	requireEq(expected, std::move(rst).str());
+	t.node.is<Type::Bool>();
+	t.done();
 }
 
 TEST_CASE("IntProp") {
 	using namespace cray;
 
-	Node node(Source::make(42));
+	ReportTester t;
+	t.node = Node(Source::make(42));
 
-	auto        describer = node.is<Type::Int>();
-	std::string expected;
+	auto describer = t.node.is<Type::Int>();
 
 	SECTION("no constraints") {
-		expected = R"(
+		t.expected = R"(
+---
 42
 )";
 	}
 
 	SECTION("default value") {
-		node = Node(Source::null());
-		node.is<Type::Int>().defaultValue(42);
+		t.node = Node(Source::null());
+		t.node.is<Type::Int>().defaultValue(42);
 
-		expected = R"(
+		t.expected = R"(
+---
 # 42
 )";
 	}
@@ -168,7 +188,8 @@ TEST_CASE("IntProp") {
 	SECTION("interval") {
 		describer.interval(-1 < x <= 1);
 
-		expected = R"(
+		t.expected = R"(
+---
 # • { x ∈ Z | -1 < x ≤ 1 }
   # <Integer>
 )";
@@ -177,7 +198,8 @@ TEST_CASE("IntProp") {
 	SECTION("multipleOf") {
 		describer.mutipleOf(7);
 
-		expected = R"(
+		t.expected = R"(
+---
 # • { x ∈ Z | x / 7 ∈ Z }
 42
 )";
@@ -186,39 +208,37 @@ TEST_CASE("IntProp") {
 	SECTION("interval and multipleOf") {
 		describer.interval(x <= 42).mutipleOf(6);
 
-		expected = R"(
+		t.expected = R"(
+---
 # • { x ∈ Z | (x ≤ 42) ∧ (x / 6 ∈ Z) }
 42
 )";
 	}
 
-	std::stringstream rst;
-	rst << std::endl;
-	report::asYaml(rst, node);
-	rst << std::endl;
-
-	requireEq(expected, std::move(rst).str());
+	t.done();
 }
 
 TEST_CASE("NumProp") {
 	using namespace cray;
 
-	Node node(Source::make(3.14));
+	ReportTester t;
+	t.node = Node(Source::make(3.14));
 
-	auto        describer = node.is<Type::Num>();
-	std::string expected;
+	auto describer = t.node.is<Type::Num>();
 
 	SECTION("no constraints") {
-		expected = R"(
+		t.expected = R"(
+---
 3.14
 )";
 	}
 
 	SECTION("default value") {
-		node = Node(Source::null());
-		node.is<Type::Num>().defaultValue(3.14);
+		t.node = Node(Source::null());
+		t.node.is<Type::Num>().defaultValue(3.14);
 
-		expected = R"(
+		t.expected = R"(
+---
 # 3.14
 )";
 	}
@@ -226,7 +246,8 @@ TEST_CASE("NumProp") {
 	SECTION("interval") {
 		describer.interval(-1.2 < x <= 2.718);
 
-		expected = R"(
+		t.expected = R"(
+---
 # • { x ∈ Q | -1.2 < x ≤ 2.718 }
   # <Number>
 )";
@@ -235,7 +256,8 @@ TEST_CASE("NumProp") {
 	SECTION("multipleOf") {
 		describer.mutipleOf(0.02);
 
-		expected = R"(
+		t.expected = R"(
+---
 # • { x ∈ Q | x / 0.02 ∈ Z }
 3.14
 )";
@@ -244,39 +266,37 @@ TEST_CASE("NumProp") {
 	SECTION("interval and multipleOf") {
 		describer.interval(x <= 3.14).mutipleOf(0.005);
 
-		expected = R"(
+		t.expected = R"(
+---
 # • { x ∈ Q | (x ≤ 3.14) ∧ (x / 0.005 ∈ Z) }
 3.14
 )";
 	}
 
-	std::stringstream rst;
-	rst << std::endl;
-	report::asYaml(rst, node);
-	rst << std::endl;
-
-	requireEq(expected, std::move(rst).str());
+	t.done();
 }
 
 TEST_CASE("StrProp") {
 	using namespace cray;
 
-	Node node(Source::make("hypnos"));
+	ReportTester t;
+	t.node = Node(Source::make("hypnos"));
 
-	auto        describer = node.is<Type::Str>();
-	std::string expected;
+	auto describer = t.node.is<Type::Str>();
 
 	SECTION("no constraints") {
-		expected = R"(
+		t.expected = R"(
+---
 hypnos
 )";
 	}
 
 	SECTION("default value") {
-		node = Node(Source::null());
-		node.is<Type::Str>().defaultValue("hypnos");
+		t.node = Node(Source::null());
+		t.node.is<Type::Str>().defaultValue("hypnos");
 
-		expected = R"(
+		t.expected = R"(
+---
 # hypnos
 )";
 	}
@@ -284,40 +304,35 @@ hypnos
 	SECTION("interval") {
 		describer.length(3 < x <= 5);
 
-		expected = R"(
+		t.expected = R"(
+---
 # • { |x| ∈ W | 3 < |x| ≤ 5 }
   # <String>
 )";
 	}
 
-	std::stringstream rst;
-	rst << std::endl;
-	report::asYaml(rst, node);
-	rst << std::endl;
-
-	requireEq(expected, std::move(rst).str());
+	t.done();
 }
 
 TEST_CASE("PolyMapProp") {
 	using namespace cray;
 	using _ = Source::Entry::MapValueType;
 
-	Node node(Source::make({
+	ReportTester t;
+	t.node = Node(Source::make({
 	    _{"a", 3},
-	    _{
-	        "foo",
-	        {
-	            _{"bar", 42},
-	        }},
+	    _{"b",
+	      {
+	          _{"bar", 42},
+	      }},
 	}));
 
-	std::string expected;
-
 	SECTION("no constraints") {
-		node["a"].is<Type::Int>(Annotation{.title = "Title A"});
-		node["b"].is<Type::Int>(Annotation{.title = "Title B"});
+		t.node["a"].is<Type::Int>(Annotation{.title = "Title A"});
+		t.node["b"].is<Type::Int>(Annotation{.title = "Title B"});
 
-		expected = R"(
+		t.expected = R"(
+---
 # Title A
 a: 3
 
@@ -328,78 +343,80 @@ b:   # <Integer>
 	}
 
 	SECTION("required fields") {
-		node["a"].is<Type::Int>();
-		node[req("b")].is<Type::Int>();
-		node["c"].is<Type::Int>().get();
+		t.node["a"].is<Type::Int>();
+		t.node[req("b")].is<Type::Int>();
+		t.node["c"].is<Type::Int>().get();
 
-		expected = R"(
+		t.expected = R"(
+---
 a: 3
 b:   # <Integer>  ⚠️ REQUIRED
 c:   # <Integer>  ⚠️ REQUIRED
 )";
 	}
 
-	SECTION("nested") {
-		Node foo = node["foo"];
-		foo["bar"].is<Type::Int>();
-		foo["baz"].is<Type::Int>();
-		foo["a"]["b"].is<Type::Int>();
+	// 	SECTION("nested") {
+	// 		Node foo = node["foo"];
+	// 		foo["bar"].is<Type::Int>();
+	// 		foo["baz"].is<Type::Int>();
+	// 		foo["a"]["b"].is<Type::Int>();
 
-		expected = R"(
-foo: 
-  bar: 42
-  baz:   # <Integer>
-  a: 
-    b:   # <Integer>
-)";
-	}
+	// 		t.expected = R"(
+	// ---
+	// foo:
+	//   bar: 42
+	//   baz:   # <Integer>
+	//   a:
+	//     b:   # <Integer>
+	// )";
+	// 	}
 
-	std::stringstream rst;
-	rst << std::endl;
-	report::asYaml(rst, node);
-	rst << std::endl;
-
-	requireEq(expected, std::move(rst).str());
+	t.done();
 }
 
 TEST_CASE("MonoMapProp") {
 	using namespace cray;
 	using _ = Source::Entry::MapValueType;
 
-	Node node(Source::make({_{"a", 3}}));
+	ReportTester t;
+	t.node = Node(Source::make({_{"a", 3}}));
 
-	auto        describer = node.is<Type::Map>().of<Type::Int>();
-	std::string expected;
+	auto describer = t.node.is<Type::Map>().of<Type::Int>();
 
 	SECTION("no constraints") {
-		expected = R"(
+		t.expected = R"(
+---
 a: 3
 )";
 	}
 
 	SECTION("no data") {
-		node = Node(Source::null());
-		node.is<Type::Map>().of<Type::Int>();
+		t.node = Node(Source::null());
+		t.node.is<Type::Map>().of<Type::Int>();
 
-		expected = R"(
+		t.expected = R"(
+---
 # key: <Integer>
 )";
 	}
 
 	SECTION("required fields") {
 		describer.containing({"a", "b", "c"});
-		expected = R"(
+
+		t.expected = R"(
+---
 b:   # <Integer>  ⚠️ REQUIRED
 c:   # <Integer>  ⚠️ REQUIRED
 a: 3
 )";
 	}
 
-	SECTION("required fields all empty") {
-		node = Node(Source::null());
-		node.is<Type::Map>().of<Type::Int>().containing({"a", "b"});
+	SECTION("all required fields empty") {
+		t.node = Node(Source::null());
+		t.node.is<Type::Map>().of<Type::Int>().containing({"a", "b"});
 
-		expected = R"(
+		t.expected = R"(
+---
 a:   # <Integer>  ⚠️ REQUIRED
 b:   # <Integer>  ⚠️ REQUIRED
 # key: <Integer>
@@ -407,10 +424,10 @@ b:   # <Integer>  ⚠️ REQUIRED
 	}
 
 	SECTION("annotation on next level") {
-		auto describer_next = prop<Type::Int>();
+		t.node.is<Type::Map>().of(prop<Type::Int>(Annotation{.title = "Counts"}).interval(3 < x));
 
-		node.is<Type::Map>().of(prop<Type::Int>(Annotation{.title = "Counts"}).interval(3 < x));
-		expected = R"(
+		t.expected = R"(
+---
 # Counts
 # • { x ∈ Z | 3 < x }
 a:   # <Integer>
@@ -419,22 +436,24 @@ a:   # <Integer>
 
 	SECTION("of MonoMapProp") {
 		SECTION("no data") {
-			node = Node(Source::null());
-			node.is<Type::Map>().of(prop<Type::Map>().of<Type::Int>());
+			t.node = Node(Source::null());
+			t.node.is<Type::Map>().of(prop<Type::Map>().of<Type::Int>());
 
-			expected = R"(
+			t.expected = R"(
+---
 # key: <Map of Integer>
 )";
 		}
 
 		SECTION("with data") {
-			node = Node(Source::make({
+			t.node = Node(Source::make({
 			    _{"A", {_{"a", 1}, _{"b", 2}, _{"c", 3}}},
 			    _{"B", {_{"d", 4}, _{"e", 5}, _{"f", 6}}},
 			}));
-			node.is<Type::Map>().of(prop<Type::Map>().of<Type::Int>());
+			t.node.is<Type::Map>().of(prop<Type::Map>().of<Type::Int>());
 
-			expected = R"(
+			t.expected = R"(
+---
 A: 
   a: 1
   b: 2
@@ -447,14 +466,15 @@ B:
 		}
 
 		SECTION("required fields") {
-			node = Node(Source::make({
+			t.node = Node(Source::make({
 			    _{"A", {_{"a", 1}}},
 			    _{"B", {_{"b", 2}}},
 			}));
-			node.is<Type::Map>().of(
+			t.node.is<Type::Map>().of(
 			    prop<Type::Map>().of<Type::Int>().containing({"a", "b"}));
 
-			expected = R"(
+			t.expected = R"(
+---
 A: 
   b:   # <Integer>  ⚠️ REQUIRED
   a: 1
@@ -466,100 +486,99 @@ B:
 	}
 
 	SECTION("of MonoListProp") {
-		node = Node(Source::null());
-		node.is<Type::Map>().of(prop<Type::List>().of<Type::Int>());
+		t.node = Node(Source::null());
+		t.node.is<Type::Map>().of(prop<Type::List>().of<Type::Int>());
 
-		expected = R"(
+		t.expected = R"(
+---
 # key: <List of Integer>
 )";
 	}
 
-	std::stringstream rst;
-	rst << std::endl;
-	report::asYaml(rst, node);
-	rst << std::endl;
-
-	requireEq(expected, std::move(rst).str());
+	t.done();
 }
 
 TEST_CASE("StructuredMapProp") {
 	using namespace cray;
 	using _ = Source::Entry::MapValueType;
 
-	Node        node(Source::null());
+	ReportTester t;
+
 	std::string expected;
 
 	SECTION("no data") {
 		using H = Holder<int>;
-		node.is<Type::Map>().to<H>()
+		t.node.is<Type::Map>().to<H>()
 		    | field("int", &H::value);
 
-		expected = R"(
+		t.expected = R"(
+---
 int:   # <Integer>  ⚠️ REQUIRED
 )";
 	}
 
 	SECTION("with data") {
-		node = Node(Source::make({_{"str", "hypnos"}}));
+		using H = testing::Holder<std::string>;
 
-		using H = Holder<std::string>;
-		node.is<Type::Map>().to<H>()
+		t.node = Node(Source::make({_{"str", "hypnos"}}));
+		t.node.is<Type::Map>().to<H>()
 		    | field("str", &H::value);
 
-		expected = R"(
+		t.expected = R"(
+---
 str: hypnos
 )";
 	}
 
 	SECTION("default value") {
-		using H = Holder<std::vector<int>>;
-		node.is<Type::Map>().to<H>()
+		using H = testing::Holder<std::vector<int>>;
+
+		t.node.is<Type::Map>().to<H>()
 		        | field("list", &H::value)
 		    || H{{2, 3, 5, 7, 11}};
 
-		expected = R"(
+		t.expected = R"(
+---
 list: [2, 3, 5, 7, 11]
 )";
 	}
 
-	std::stringstream rst;
-	rst << std::endl;
-	report::asYaml(rst, node);
-	rst << std::endl;
-
-	requireEq(expected, std::move(rst).str());
+	t.done();
 }
 
 TEST_CASE("MonoListProp") {
 	using namespace cray;
 	using _ = Source::Entry::MapValueType;
 
-	Node node(Source::make({2, 3, 5}));
+	ReportTester t;
+	t.node = Node(Source::make({2, 3, 5}));
 
-	auto        describer = node.is<Type::List>().of<Type::Int>();
-	std::string expected;
+	auto describer = t.node.is<Type::List>().of<Type::Int>();
 
 	SECTION("no data") {
-		node = Node(Source::null());
-		node.is<Type::List>().of<Type::Int>();
+		t.node = Node(Source::null());
+		t.node.is<Type::List>().of<Type::Int>();
 
-		expected = R"(
+		t.expected = R"(
+---
 # - <Integer>
 # - ...
 )";
 	}
 
 	SECTION("no constraints") {
-		expected = R"(
+		t.expected = R"(
+---
 [2, 3, 5]
 )";
 	}
 
 	SECTION("default value") {
-		node = Node(Source::null());
-		node.is<Type::List>().of<Type::Int>().defaultValue({2, 4, 8});
+		t.node = Node(Source::null());
+		t.node.is<Type::List>().of<Type::Int>().defaultValue({2, 4, 8});
 
-		expected = R"(
+		t.expected = R"(
+---
 # [2, 4, 8]
 )";
 	}
@@ -567,7 +586,8 @@ TEST_CASE("MonoListProp") {
 	SECTION("size") {
 		describer.size(2 < x <= 5);
 
-		expected = R"(
+		t.expected = R"(
+---
 # • { |x| ∈ W | 2 < |x| ≤ 5 }
 [2, 3, 5]
 )";
@@ -575,24 +595,26 @@ TEST_CASE("MonoListProp") {
 
 	SECTION("of MonoListProp") {
 		SECTION("no data") {
-			node = Node(Source::null());
-			node.is<Type::List>().of(prop<Type::List>().of<Type::Int>());
+			t.node = Node(Source::null());
+			t.node.is<Type::List>().of(prop<Type::List>().of<Type::Int>());
 
-			expected = R"(
+			t.expected = R"(
+---
 # - <List of Integer>
 # - ...
 )";
 		}
 
 		SECTION("with data") {
-			node = Node(Source::make({
+			t.node = Node(Source::make({
 			    {1, 2, 3},
 			    {4, 5, 6},
 			    {7, 8, 9},
 			}));
-			node.is<Type::List>().of(prop<Type::List>().of<Type::Int>());
+			t.node.is<Type::List>().of(prop<Type::List>().of<Type::Int>());
 
-			expected = R"(
+			t.expected = R"(
+---
 - [1, 2, 3]
 - [4, 5, 6]
 - [7, 8, 9]
@@ -602,23 +624,25 @@ TEST_CASE("MonoListProp") {
 
 	SECTION("of MonoMapProp") {
 		SECTION("no data") {
-			node = Node(Source::null());
-			node.is<Type::List>().of(prop<Type::Map>().of<Type::Int>());
+			t.node = Node(Source::null());
+			t.node.is<Type::List>().of(prop<Type::Map>().of<Type::Int>());
 
-			expected = R"(
+			t.expected = R"(
+---
 # - <Map of Integer>
 # - ...
 )";
 		}
 
 		SECTION("with data") {
-			node = Node(Source::make({
+			t.node = Node(Source::make({
 			    {_{"a", 1}, _{"b", 2}},
 			    {_{"c", 3}, _{"d", 4}},
 			}));
-			node.is<Type::List>().of(prop<Type::Map>().of<Type::Int>());
+			t.node.is<Type::List>().of(prop<Type::Map>().of<Type::Int>());
 
-			expected = R"(
+			t.expected = R"(
+---
 - 
   a: 1
   b: 2
@@ -629,12 +653,7 @@ TEST_CASE("MonoListProp") {
 		}
 	}
 
-	std::stringstream rst;
-	rst << std::endl;
-	report::asYaml(rst, node);
-	rst << std::endl;
-
-	requireEq(expected, std::move(rst).str());
+	t.done();
 }
 
 struct Ingredient {
@@ -657,13 +676,13 @@ TEST_CASE("Enchilada") {
 	using namespace cray;
 	using _ = Source::Entry::MapValueType;
 
-	auto        source = Source::null();
+	ReportTester t;
+
 	std::string expected;
 
-	Node node(source);
-
 	SECTION("no data") {
-		expected = R"(
+		t.expected = R"(
+---
 dish: 
   flag:   # <Bool>  ⚠️ REQUIRED
   int:   # <Integer>  ⚠️ REQUIRED
@@ -674,7 +693,7 @@ dish:
 )";
 	}
 
-	node["dish"].is<Type::Map>().to<Enchilada>()
+	t.node["dish"].is<Type::Map>().to<Enchilada>()
 	    | field("flag", &Enchilada::flag)
 	    | field("int", &Enchilada::integer)
 	    | field("num", &Enchilada::number)
@@ -686,10 +705,5 @@ dish:
 	//         | field("name", &Ingredient::name)
 	//         | field("qty", &Ingredient::quantity)));
 
-	std::stringstream rst;
-	rst << std::endl;
-	report::asYaml(rst, node);
-	rst << std::endl;
-
-	requireEq(expected, std::move(rst).str());
+	t.done();
 }

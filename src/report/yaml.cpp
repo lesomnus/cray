@@ -34,18 +34,22 @@ void write(std::ostream& o, Interval<T> interval, std::string const& var = "x") 
 
 struct ReportContext {
 	void report(Prop const& prop) {
+		++this->level;
+
 		const auto t = prop.type();
 		switch(t) {
-		case Type::Nil: this->reportScalarProp<Type::Nil>(prop); return;
-		case Type::Bool: this->reportScalarProp<Type::Bool>(prop); return;
-		case Type::Int: this->reportScalarProp<Type::Int>(prop); return;
-		case Type::Num: this->reportScalarProp<Type::Num>(prop); return;
-		case Type::Str: this->reportScalarProp<Type::Str>(prop); return;
-		case Type::Map: this->report(dynamic_cast<KeyedPropHolder const&>(prop)); return;
-		case Type::List: this->reportList(prop); return;
+		case Type::Nil: this->reportScalarProp<Type::Nil>(prop); break;
+		case Type::Bool: this->reportScalarProp<Type::Bool>(prop); break;
+		case Type::Int: this->reportScalarProp<Type::Int>(prop); break;
+		case Type::Num: this->reportScalarProp<Type::Num>(prop); break;
+		case Type::Str: this->reportScalarProp<Type::Str>(prop); break;
+		case Type::Map: this->report(dynamic_cast<KeyedPropHolder const&>(prop)); break;
+		case Type::List: this->report(dynamic_cast<IndexedPropHolder const&>(prop)); break;
 
 		default: throw InvalidTypeError(t);
 		}
+
+		--this->level;
 	}
 
 	template<Type T>
@@ -69,19 +73,10 @@ struct ReportContext {
 			dst << "# ";
 		}
 
-		if constexpr(T == Type::Bool) {
-			dst << (*value ? "true" : "false");
-		} else {
-			dst << *value;
-		}
+		dst << *value;
 	}
 
 	void report(KeyedPropHolder const& prop) {
-		auto const s = this->scope();
-		if(this->level > 0) {
-			this->dst << std::endl;
-		}
-
 		if(prop.isConcrete()) {
 			reportPolyMap(prop);
 		} else {
@@ -90,8 +85,6 @@ struct ReportContext {
 	}
 
 	void reportPolyMap(KeyedPropHolder const& prop) {
-		auto const& p = dynamic_cast<KeyedPropHolder const&>(prop);
-
 		std::shared_ptr<Source> source;
 		if(prop.hasDefault() && !prop.source->is(Type::Map)) {
 			source = Source::make(nullptr);
@@ -102,24 +95,23 @@ struct ReportContext {
 		}
 
 		bool is_first = true;
-		p.forEachProps(*source, [&](std::string const& key, std::shared_ptr<Prop> const& next_prop) {
-			if(!std::exchange(is_first, false)) {
-				this->dst << std::endl;
-			}
+		prop.forEachProps(*source, [&](std::string const& key, std::shared_ptr<Prop> const& next_prop) {
+			bool const is_annotated = this->annotate(*next_prop);
+			this->enter();
 
-			bool is_annotated = false;
-			annotate(*next_prop, [&] { is_annotated = true; });
-
-			this->tab();
 			this->dst << key << ": ";
 			this->report(*next_prop);
 
 			if(is_annotated) {
-				this->dst << std::endl;
+				this->enter();
 			}
 
 			return true;
 		});
+
+		if(is_first == 0) {
+			// TODO: next prop structure
+		}
 	}
 
 	void reportMonoMap(KeyedPropHolder const& prop) {
@@ -128,50 +120,47 @@ struct ReportContext {
 			return;
 		}
 
-		this->annotate(*next_prop, [] {});
+		this->annotate(*next_prop);
 
 		for(auto const& key: prop.required_keys) {
 			if(prop.source->has(key)) {
 				continue;
 			}
 
-			this->tab();
+			this->enter();
 			this->dst << key << ":   # <" << next_prop->name() << ">  ⚠️ REQUIRED";
-			this->dst << std::endl;
 		}
 
-		bool is_first = true;
+		std::size_t cnt = 0;
 		prop.forEachProps([&](std::string const& key, std::shared_ptr<Prop> const& next_prop) {
-			if(!std::exchange(is_first, false)) {
-				this->dst << std::endl;
-			}
+			++cnt;
 
-			this->tab();
+			this->enter();
 			this->dst << key << ": ";
 			this->report(*next_prop);
 		});
 
-		if(is_first) {
-			this->tab();
+		if(cnt == 0) {
+			this->enter();
 			this->dst << "# key: <" << next_prop->name() << ">";
 		}
 	}
 
-	void reportList(Prop const& prop) {
-		auto const s = this->scope();
-
+	void report(IndexedPropHolder const& prop) {
 		reportMonoList(prop);
 	}
 
-	void reportMonoList(Prop const& prop) {
+	void reportMonoList(IndexedPropHolder const& prop) {
 		auto const next_prop = prop.at(Reference());
 		if(next_prop == nullptr) {
 			return;
 		}
 
+		bool is_default_value = false;
+
 		std::shared_ptr<Source> source;
 		if(prop.hasDefault() && !prop.source->is(Type::List)) {
-			this->dst << "# ";
+			is_default_value = true;
 
 			source = Source::make(nullptr);
 			prop.encodeDefaultValueInto(*source);
@@ -181,63 +170,55 @@ struct ReportContext {
 		}
 
 		if(source->isEmpty()) {
-			this->tab();
-			this->dst << "# - <" << next_prop->name() << ">" << std::endl;
-			this->tab();
+			this->enter();
+			this->dst << "# - <" << next_prop->name() << ">";
+			this->enter();
 			this->dst << "# - ...";
 			return;
 		}
 
 		if(isScalarType(next_prop->type())) {
-			bool is_annotated = false;
-			annotate(*next_prop, [this, &is_annotated]() mutable {
-				if(!is_annotated) {
-					is_annotated = true;
-					this->dst << std::endl;
-				}
-			});
-
-			if(is_annotated) {
-				this->tab();
+			bool const is_annotated = annotate(*next_prop);
+			if(is_annotated || this->level <= 0) {
+				this->enter();
 			}
-
+			if(is_default_value) {
+				this->dst << "# ";
+			}
 			this->dst << "[";
+
+			bool is_first = true;
 
 			std::size_t const cnt_elems = source->size();
 			for(std::size_t i = 0; i < cnt_elems; ++i) {
+				if(!std::exchange(is_first, false)) {
+					this->dst << ", ";
+				}
+
 				next_prop->source = source->next(i);
 				next_prop->ref    = i;
 				this->report(*next_prop);
-
-				if(i == (cnt_elems - 1)) {
-					break;
-				}
-
-				this->dst << ", ";
 			}
 
 			this->dst << "]";
 		} else {
-			if(this->level > 0) {
-				this->dst << std::endl;
-			}
+			annotate(*next_prop);
 
-			annotate(*next_prop, [] {});
+			// bool is_first = true;
+			// annotate(*next_prop, [&] {
+			// 	if(std::exchange(is_first, false)) {
+			// 		this->enter();
+			// 	}
+			// });
 
 			std::size_t const cnt_elems = source->size();
 			for(std::size_t i = 0; i < cnt_elems; ++i) {
-				this->tab();
+				this->enter();
 				this->dst << "- ";
 
 				next_prop->source = source->next(i);
 				next_prop->ref    = i;
 				this->report(*next_prop);
-
-				if(i == (cnt_elems - 1)) {
-					break;
-				}
-
-				this->dst << std::endl;
 			}
 		}
 	}
@@ -245,21 +226,22 @@ struct ReportContext {
 	void annotate(Annotation const& annotation, std::function<void()> const& on_annotate) {
 		if(!annotation.title.empty()) {
 			on_annotate();
-			this->tab();
-			this->dst << "# " << annotation.title << std::endl;
+			this->enter();
+			this->dst << "# " << annotation.title;
 		}
 
 		if(annotation.is_deprecated) {
 			on_annotate();
-			this->tab();
-			this->dst << "# ⚠️ DEPRECATED" << std::endl;
+			this->enter();
+			this->dst << "# ⚠️ DEPRECATED";
 		}
 
 		if(!annotation.description.empty()) {
 			on_annotate();
+			this->enter();
+
 			// TODO: handle multiline.
-			this->tab();
-			this->dst << "# | " << annotation.description << std::endl;
+			this->dst << "# | " << annotation.description;
 		}
 	}
 
@@ -279,6 +261,12 @@ struct ReportContext {
 		}
 	}
 
+	bool annotate(Prop const& prop) {
+		bool is_annotate = false;
+		this->annotate(prop, [&] { is_annotate = true; });
+		return is_annotate;
+	}
+
 	template<Type T>
 	    requires((T == Type::Int) || (T == Type::Num))
 	void annotateNumeric(NumericProp<T> const& prop, std::function<void()> const& on_annotate) {
@@ -286,7 +274,8 @@ struct ReportContext {
 		bool const has_divisor  = !prop.multiple_of.empty();
 		if(has_interval || has_divisor) {
 			on_annotate();
-			this->tab();
+			this->enter();
+
 			if constexpr(T == Type::Int) {
 				this->dst << "# • { x ∈ Z | ";
 			} else {
@@ -301,11 +290,11 @@ struct ReportContext {
 			} else if(has_divisor) {
 				this->dst << "x / " << prop.multiple_of.divisor << " ∈ Z";
 			}
-			this->dst << " }" << std::endl;
+			this->dst << " }";
 
 			if(prop.with_clamp) {
-				this->tab();
-				this->dst << "# • value is clamped if it is not in interval" << std::endl;
+				this->enter();
+				this->dst << "# • value is clamped if it is not in interval";
 			}
 		}
 	}
@@ -319,35 +308,38 @@ struct ReportContext {
 	void annotate(StrProp const& prop, std::function<void()> const& on_annotate) {
 		if(!prop.allowed_values.empty()) {
 			on_annotate();
-			this->tab();
+			this->enter();
+
 			this->dst << "# • ";
 
-			std::size_t cnt_remain = prop.allowed_values.size();
+			bool is_first = true;
 			for(auto const& value: prop.allowed_values) {
-				this->dst << value;
-				if(--cnt_remain > 0) {
+				if(!std::exchange(is_first, false)) {
 					this->dst << " | ";
 				}
+
+				this->dst << value;
 			}
-			this->dst << std::endl;
 		}
 
 		if(!prop.length.isAll()) {
 			on_annotate();
-			this->tab();
+			this->enter();
+
 			this->dst << "# • { |x| ∈ W | ";
 			write(this->dst, prop.length, "|x|");
-			this->dst << " }" << std::endl;
+			this->dst << " }";
 		}
 	}
 
 	void annotate(IndexedPropHolder const& prop, std::function<void()> const& on_annotate) {
 		if(!prop.size.isAll()) {
 			on_annotate();
-			this->tab();
+			this->enter();
+
 			this->dst << "# • { |x| ∈ W | ";
 			write(this->dst, prop.size, "|x|");
-			this->dst << " }" << std::endl;
+			this->dst << " }";
 		}
 	}
 
@@ -359,11 +351,9 @@ struct ReportContext {
 		this->dst << std::string(this->tab_size * this->level, ' ');
 	}
 
-	std::shared_ptr<void> scope() {
-		++this->level;
-		return std::shared_ptr<void>(nullptr, [this](...) {
-			--this->level;
-		});
+	void enter() {
+		this->dst << std::endl;
+		this->tab();
 	}
 
 	std::ostream& dst;
@@ -376,7 +366,15 @@ class YamlReporter: public Reporter {
    protected:
 	void report_(std::ostream& dst, detail::Prop const& prop) const override {
 		auto ctx = detail::ReportContext{.dst = dst};
-		ctx.annotate(prop, [] {});
+
+		dst << std::boolalpha;
+		dst << "---";
+
+		ctx.annotate(prop);
+		if(isScalarType(prop.type())) {
+			ctx.enter();
+		}
+
 		ctx.report(prop);
 	}
 };
