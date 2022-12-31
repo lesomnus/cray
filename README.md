@@ -1,5 +1,8 @@
 # CRay
 
+[![test](https://github.com/lesomnus/cray/actions/workflows/test.yaml/badge.svg)](https://github.com/lesomnus/cray/actions/workflows/test.yaml)
+[![codecov](https://codecov.io/gh/lesomnus/cray/branch/main/graph/badge.svg?token=Zw14Luij1P)](https://codecov.io/gh/lesomnus/cray)
+
 Access configs in a structured manner with validation and automatically generate documented configs.
 
 ## Example
@@ -61,7 +64,7 @@ int main(int argc, char*[] argv) {
 	std::ofstream out("workflow.yaml");
 	report::asYaml(out, node);
 	
-	std::ofstream out("workflow.schema.yaml");
+	std::ofstream out("workflow.schema.json");
 	report::asJsonSchema(out, node);
 
 	if(!node.ok()){
@@ -109,9 +112,9 @@ jobs:
         run: build && test
 ```
 
-And you can have JSON schema:
+And you can have JSON schema `workflow.schema.json`:
 
-> This is a short result. Full results can be found at [tests/src/example-report.cpp](tests/src/example-report.cpp).
+> This is a summarized result. Full results can be found at [tests/src/example-report.cpp](tests/src/example-report.cpp).
 
 ```json
 {

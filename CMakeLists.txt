@@ -20,6 +20,10 @@ find_package(yaml-cpp CONFIG)
 
 
 add_library(
+	CRay-base INTERFACE
+)
+
+add_library(
 	CRay SHARED
 		include/cray/detail/props/bool.hpp
 		include/cray/detail/props/int.hpp
@@ -58,6 +62,10 @@ target_include_directories(
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 		$<INSTALL_INTERFACE:${CMAKE_INSTALL_PREFIX}/include>
 )
+target_link_libraries(
+	CRay PRIVATE
+		CRay-base
+)
 add_library(
 	CRay::CRay
 		ALIAS CRay
@@ -66,17 +74,20 @@ add_library(
 if(TARGET yaml-cpp)
 message(STATUS "CRay::yaml enabled")
 add_library(
-	CRay_yaml SHARED
+	CRay-yaml SHARED
 		src/loaders/yaml.cpp
 )
 target_link_libraries(
-	CRay_yaml PRIVATE
-		CRay::CRay
-		yaml-cpp
+	CRay-yaml
+		PUBLIC
+			CRay::CRay
+		PRIVATE
+			CRay-base
+			yaml-cpp
 )
 add_library(
 	CRay::yaml
-		ALIAS CRay_yaml
+		ALIAS CRay-yaml
 )
 endif()
 
