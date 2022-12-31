@@ -9,6 +9,11 @@ jobs:
     runs-on: ubuntu-22.04
     container: ghcr.io/lesomnus/dev-gcc:12
     steps:
+      - name: Install dependencies
+        run: |
+          vcpkg install \
+            yaml-cpp
+
       - uses: actions/checkout@v3
 
       - name: Configure
