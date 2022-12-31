@@ -53,6 +53,7 @@ include(Catch)
 
 
 
+add_custom_target(all-test)
 macro (CRay_SIMPLE_TEST NAME)
 	add_executable(
 		${NAME}-test
@@ -72,6 +73,11 @@ macro (CRay_SIMPLE_TEST NAME)
 			CRay::yaml
 	)
 	catch_discover_tests(${NAME}-test)
+	
+	add_dependencies(
+		all-test
+			${NAME}-test
+	)
 endmacro (CRay_SIMPLE_TEST)
 
 CRay_SIMPLE_TEST(interval)
