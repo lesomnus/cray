@@ -61,7 +61,7 @@ int main(int argc, char*[] argv) {
 	std::ofstream out("workflow.yaml");
 	report::asYaml(out, node);
 	
-	std::ofstream out("workflow.schema.yaml");
+	std::ofstream out("workflow.schema.json");
 	report::asJsonSchema(out, node);
 
 	if(!node.ok()){
@@ -109,7 +109,7 @@ jobs:
         run: build && test
 ```
 
-And you can have JSON schema:
+And you can have JSON schema `workflow.schema.json`:
 
 > This is a short result. Full results can be found at [tests/src/example-report.cpp](tests/src/example-report.cpp).
 
