@@ -73,8 +73,12 @@ class BasicPolyMapProp
 		}
 	}
 
-	bool isConcrete() const override {
-		return true;
+	bool isMono() const override {
+		return false;
+	}
+
+	Interval<std::size_t> interval() const override {
+		return Interval<std::size_t>::All();
 	}
 
 	void forEachProps(Source const& source, std::function<void(std::string const&, std::shared_ptr<Prop> const&)> const& functor) const override {

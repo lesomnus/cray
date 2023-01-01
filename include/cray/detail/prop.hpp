@@ -243,9 +243,22 @@ class RootProp: public Prop {
 	bool                  next_prop_is_required;
 };
 
-class KeyedPropHolder: public virtual Prop {
+class PropHolder: public virtual Prop {
    public:
 	using Prop::Prop;
+
+	virtual bool isMono() const = 0;
+
+	bool isPoly() const {
+		return !this->isMono();
+	}
+
+	virtual Interval<std::size_t> interval() const = 0;
+};
+
+class KeyedPropHolder: public PropHolder {
+   public:
+	using PropHolder::PropHolder;
 
 	void markRequired(Reference const& ref) override {
 		this->required_keys.insert(ref.key());
@@ -258,8 +271,6 @@ class KeyedPropHolder: public virtual Prop {
 		return this->required_keys.contains(ref.key());
 	}
 
-	virtual bool isConcrete() const = 0;
-
 	virtual void forEachProps(Source const& source, std::function<void(std::string const&, std::shared_ptr<Prop> const&)> const& functor) const = 0;
 
 	void forEachProps(std::function<void(std::string const&, std::shared_ptr<Prop> const&)> const& functor) const {
@@ -269,11 +280,9 @@ class KeyedPropHolder: public virtual Prop {
 	OrderedSet<std::string> required_keys;
 };
 
-class IndexedPropHolder: public virtual Prop {
+class IndexedPropHolder: public PropHolder {
    public:
-	using Prop::Prop;
-
-	Interval<std::size_t> size;
+	using PropHolder::PropHolder;
 };
 
 template<Type T>

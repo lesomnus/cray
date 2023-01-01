@@ -168,6 +168,20 @@ struct Interval {
 	using LowerBoundType = LowerBound<ValueType>;
 	using UpperBoundType = UpperBound<ValueType>;
 
+	static constexpr Interval All() noexcept {
+		return Interval{
+		    .min = std::nullopt,
+		    .max = std::nullopt,
+		};
+	}
+
+	static constexpr Interval Singleton(T value) noexcept {
+		return Interval{
+		    .min = LowerBoundType{value, true},
+		    .max = UpperBoundType{value, true},
+		};
+	};
+
 	static constexpr Interval Empty() noexcept {
 		return Interval{
 		    .min = LowerBoundType{+2, false},
@@ -186,6 +200,47 @@ struct Interval {
 
 	constexpr bool isAll() const {
 		return !this->min.has_value() && !this->max.has_value();
+	}
+
+	constexpr bool isSingleton() const {
+		if(!(this->min && this->max)) {
+			return false;
+		}
+
+		if(this->min->value > this->max->value) {
+			return false;
+		}
+
+		if(this->min->is_inclusive && this->max->is_inclusive) {
+			return this->min->value == this->max->value;
+		}
+
+		if constexpr(std::is_floating_point_v<T>) {
+			return false;
+		}
+
+		if(this->min->is_inclusive || this->max->is_inclusive) {
+			return this->min->value + 1 == this->max->value;
+		} else {
+			return this->min->value + 2 == this->max->value;
+		}
+	}
+
+	constexpr T minimum() const {
+		if(!this->min.has_value()) {
+			return std::numeric_limits<T>::lowest();
+		} else {
+			if(this->min->is_inclusive) {
+				return this->min->value;
+			} else {
+				if constexpr(std::is_integral_v<T>) {
+					return this->min->value + 1;
+				} else {
+					// TODO: next after
+					return this->min->value;
+				}
+			}
+		}
 	}
 
 	constexpr bool empty() const {

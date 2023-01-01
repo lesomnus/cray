@@ -1,3 +1,4 @@
+#include <array>
 #include <optional>
 #include <string>
 #include <type_traits>
@@ -547,17 +548,68 @@ TEST_CASE("ListProp") {
 	node.is<Type::List>().of(prop<Type::Int>().mutipleOf(42)).size(2 < x);
 }
 
+TEST_CASE("ArrayProp") {
+	using namespace cray;
+	using _ = Source::Entry::MapValueType;
+
+	SECTION("::defaultValue") {
+		Node node(Source::null());
+		node.is<Type::List>().of<Type::Int, 3>().get();
+		REQUIRE(!node.ok());
+
+		auto const value = node.is<Type::List>().of<Type::Int, 3>().withDefault({7, 42, 53});
+		REQUIRE(node.ok());
+		REQUIRE(3 == value.size());
+		REQUIRE(42 == value.at(1));
+	}
+
+	SECTION("::encodeDefaultValueInto") {
+		auto source = Source::make(nullptr);
+		REQUIRE(!source->is(Type::List));
+
+		auto p = detail::getProp(prop<Type::List>().of<Type::Int, 3>().defaultValue({2, 4, 8}));
+		p->encodeDefaultValueInto(*source);
+		REQUIRE(source->is(Type::List));
+
+		REQUIRE(3 == source->size());
+
+		StorageOf<Type::Int> v;
+		REQUIRE((source->next(0)->get(v) && (2 == v)));
+		REQUIRE((source->next(1)->get(v) && (4 == v)));
+		REQUIRE((source->next(2)->get(v) && (8 == v)));
+	}
+
+	SECTION("of ArrayProp") {
+		SECTION("::get") {
+			Node node(Source::make({
+			    {1, 2, 3},
+			    {4, 5, 6},
+			    {7, 8, 9},
+			}));
+
+			std::array<std::array<StorageOf<Type::Int>, 3>, 3> const expected{{
+			    {{1, 2, 3}},
+			    {{4, 5, 6}},
+			    {{7, 8, 9}},
+			}};
+
+			auto const actual = node.is<Type::List>().of<3>(prop<Type::List>().of<Type::Int, 3>()).get();
+			REQUIRE(expected == actual);
+		}
+	}
+}
+
 TEST_CASE("MonoListProp") {
 	using namespace cray;
 	using _ = Source::Entry::MapValueType;
 
 	SECTION("::defaultValue") {
-		Node null_node(Source::null());
-		null_node.is<Type::List>().of<Type::Int>().get();
-		REQUIRE(!null_node.ok());
+		Node node(Source::null());
+		node.is<Type::List>().of<Type::Int>().get();
+		REQUIRE(!node.ok());
 
-		auto const value = null_node.is<Type::List>().of<Type::Int>().withDefault({7, 42, 53});
-		REQUIRE(null_node.ok());
+		auto const value = node.is<Type::List>().of<Type::Int>().withDefault({7, 42, 53});
+		REQUIRE(node.ok());
 		REQUIRE(3 == value.size());
 		REQUIRE(42 == value.at(1));
 	}

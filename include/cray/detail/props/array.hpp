@@ -1,39 +1,35 @@
 #pragma once
 
-#include <algorithm>
+#include <array>
 #include <concepts>
-#include <memory>
-#include <optional>
-#include <string>
-#include <unordered_map>
+#include <cstddef>
 #include <utility>
 
-#include "cray/detail/ordered_set.hpp"
 #include "cray/detail/prop.hpp"
 #include "cray/types.hpp"
 
 namespace cray {
 namespace detail {
 
-template<typename V, std::derived_from<CodecProp<V>> P>
-class MonoMapProp
-    : public CodecProp<std::unordered_map<std::string, V>>
-    , public KeyedPropHolder {
+template<typename V, std::size_t N, std::derived_from<CodecProp<V>> P>
+class ArrayProp
+    : public CodecProp<std::array<V, N>>
+    , public IndexedPropHolder {
    public:
-	using StorageType     = std::unordered_map<std::string, V>;
+	using StorageType     = std::array<V, N>;
 	using NextPropType    = P;
 	using NextStorageType = V;
 
 	template<typename Ctx, bool = true>
-	class DescriberBase: public detail::Describer<MonoMapProp<V, P>> {
+	class DescriberBase: public detail::Describer<ArrayProp<V, N, P>> {
 	   public:
-		using detail::Describer<MonoMapProp<V, P>>::Describer;
+		using detail::Describer<ArrayProp<V, N, P>>::Describer;
 	};
 
 	template<bool Dummy>
-	class DescriberBase<GettableContext, Dummy>: public detail::Describer<MonoMapProp<V, P>> {
+	class DescriberBase<GettableContext, Dummy>: public detail::Describer<ArrayProp<V, N, P>> {
 	   public:
-		using detail::Describer<MonoMapProp<V, P>>::Describer;
+		using detail::Describer<ArrayProp<V, N, P>>::Describer;
 
 		inline std::optional<StorageType> opt() const {
 			return this->prop_->opt();
@@ -65,36 +61,42 @@ class MonoMapProp
 			}
 		}
 
-		inline Describer const& containing(OrderedSet<std::string> keys) const {
-			this->prop_->required_keys = std::move(keys);
-			return *this;
-		}
-
 		inline auto operator||(StorageType value) const {
 			return this->withDefault(std::move(value));
 		}
 	};
 
-	using CodecProp<std::unordered_map<std::string, V>>::CodecProp;
+	using CodecProp<std::array<V, N>>::CodecProp;
 
 	Type type() const override {
-		return Type::Map;
+		return Type::List;
 	}
 
 	std::string name() const override {
-		return "Map of " + this->next_prop->name();
+		return "List of " + this->next_prop->name();
 	}
 
 	bool ok() const override {
-		if(!this->source->is(Type::Map)) {
+		if(!this->source->is(Type::List)) {
 			return !this->isNeeded() || this->hasDefault();
 		}
 
-		if(!std::ranges::all_of(this->required_keys, HeldBy(*this->source))) {
+		if(this->source->size() != N) {
 			return false;
 		}
 
 		return true;
+	}
+
+	bool needs(Reference const& ref) const {
+		if(!ref.isIndex()) {
+			return false;
+		}
+
+		return ref.index() < N;
+	}
+
+	void markRequired(Reference const& ref) override {
 	}
 
 	void assign(Reference const& ref, std::shared_ptr<Prop> prop) override {
@@ -115,57 +117,50 @@ class MonoMapProp
 	}
 
 	Interval<std::size_t> interval() const override {
-		return Interval<std::size_t>::All();
-	}
-
-	void forEachProps(Source const& source, std::function<void(std::string const&, std::shared_ptr<Prop> const&)> const& functor) const override {
-		this->source->keys([&](std::string const& key) {
-			this->next_prop->source = source.next(key);
-			this->next_prop->ref    = key;
-
-			functor(key, this->next_prop);
-			return true;
-		});
+		return Interval<std::size_t>::Singleton(N);
 	}
 
 	std::shared_ptr<CodecProp<NextStorageType>> next_prop;
 
    protected:
 	void encodeInto_(Source& dst, StorageType const& value) const {
-		for(auto const& [key, next_value]: value) {
-			auto next = dst.next(key);
-			this->next_prop->encodeInto(*next, next_value);
+		for(std::size_t index = 0; index < value.size(); ++index) {
+			auto const next_src = dst.next(index);
+			this->next_prop->encodeInto(*next_src, value.at(index));
 		}
 	}
 
 	bool decodeFrom_(Source const& src, StorageType& value) const {
-		if(!src.is(Type::Map)) {
+		if(!src.is(Type::List)) {
 			return false;
 		}
 
-		if(!std::ranges::all_of(this->required_keys, HeldBy(src))) {
+		if(src.size() != N) {
 			return false;
 		}
 
-		src.keys([&](std::string const& key) {
-			auto next = src.next(key);
-			return this->next_prop->decodeFrom(*next, value[key]);
-		});
+		for(std::size_t i = 0; i < N; ++i) {
+			auto const next_src = src.next(i);
+			auto const ok       = this->next_prop->decodeFrom(*next_src, value.at(i));
+			if(!ok) {
+				return false;
+			}
+		}
 
 		return true;
 	}
 };
 
-template<std::derived_from<Prop> P>
-using MonoMapPropOf = MonoMapProp<typename P::StorageType, P>;
+template<std::derived_from<Prop> P, std::size_t N>
+using ArrayPropOf = ArrayProp<typename P::StorageType, N, P>;
 
-template<typename V>
-struct PropFor_<std::unordered_map<std::string, V>> {
-	using type = MonoMapPropOf<PropFor<V>>;
+template<typename V, std::size_t N>
+struct PropFor_<std::array<V, N>> {
+	using type = ArrayPropOf<PropFor<V>, N>;
 };
 
-template<typename V, typename P>
-struct IsMonoPropHolder_<MonoMapProp<V, P>>: std::true_type { };
+template<typename V, std::size_t N, typename P>
+struct IsMonoPropHolder_<ArrayProp<V, N, P>>: std::true_type { };
 
 }  // namespace detail
 }  // namespace cray

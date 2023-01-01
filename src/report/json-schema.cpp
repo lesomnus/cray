@@ -93,18 +93,18 @@ struct ReportContext {
 			});
 		}
 
-		if(prop.isConcrete()) {
+		if(prop.isMono()) {
+			this->fieldO("additionalProperties", [&] {
+				auto const next_prop = prop.at(Reference());
+				this->report(*next_prop);
+			});
+		} else {
 			this->fieldO("properties", [&] {
 				prop.forEachProps([this](std::string const& key, std::shared_ptr<Prop> const& next_prop) {
 					this->fieldO(key, [&] {
 						this->report(*next_prop);
 					});
 				});
-			});
-		} else {
-			this->fieldO("additionalProperties", [&] {
-				auto const next_prop = prop.at(Reference());
-				this->report(*next_prop);
 			});
 		}
 	}

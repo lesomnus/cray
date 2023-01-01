@@ -89,7 +89,7 @@ class MonoListProp
 			return !this->isNeeded() || this->hasDefault();
 		}
 
-		if(std::size_t const size = this->source->size(); !this->size.contains(size)) {
+		if(std::size_t const size = this->source->size(); !this->interval().contains(size)) {
 			return false;
 		}
 
@@ -116,7 +116,17 @@ class MonoListProp
 		return this->next_prop;
 	}
 
+	bool isMono() const override {
+		return true;
+	}
+
+	Interval<std::size_t> interval() const override {
+		return this->size;
+	}
+
 	std::shared_ptr<CodecProp<NextStorageType>> next_prop;
+
+	Interval<std::size_t> size;
 
    protected:
 	void encodeInto_(Source& dst, StorageType const& value) const {
@@ -132,7 +142,7 @@ class MonoListProp
 		}
 
 		auto const size = src.size();
-		if(!this->size.contains(size)) {
+		if(!this->interval().contains(size)) {
 			return false;
 		}
 

@@ -25,6 +25,7 @@ add_library(
 
 add_library(
 	CRay SHARED
+		include/cray/detail/props/array.hpp
 		include/cray/detail/props/bool.hpp
 		include/cray/detail/props/int.hpp
 		include/cray/detail/props/list.hpp

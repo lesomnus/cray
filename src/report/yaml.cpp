@@ -100,10 +100,10 @@ struct ReportContext {
 	}
 
 	void report(KeyedPropHolder const& prop) {
-		if(prop.isConcrete()) {
-			reportPolyMap(prop);
-		} else {
+		if(prop.isMono()) {
 			reportMonoMap(prop);
+		} else {
+			reportPolyMap(prop);
 		}
 	}
 
@@ -177,7 +177,11 @@ struct ReportContext {
 	}
 
 	void report(IndexedPropHolder const& prop) {
-		reportMonoList(prop);
+		if(prop.isMono()) {
+			reportMonoList(prop);
+		} else {
+			throw std::runtime_error("not implemented");
+		}
 	}
 
 	void reportMonoList(IndexedPropHolder const& prop) {
@@ -383,12 +387,12 @@ struct ReportContext {
 	}
 
 	void annotate(IndexedPropHolder const& prop, std::function<void()> const& on_annotate) {
-		if(!prop.size.isAll()) {
+		if(!prop.interval().isAll()) {
 			on_annotate();
 			this->enter();
 
 			this->dst << "# • { |x| ∈ W | ";
-			write(this->dst, prop.size, "|x|");
+			write(this->dst, prop.interval(), "|x|");
 			this->dst << " }";
 		}
 	}
