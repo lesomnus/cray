@@ -203,7 +203,7 @@ struct Interval {
 	}
 
 	constexpr bool isSingleton() const {
-		if(!(this->min && this->max)) {
+		if(!(this->min.has_value() && this->max.has_value())) {
 			return false;
 		}
 
@@ -243,7 +243,7 @@ struct Interval {
 		}
 	}
 
-	constexpr bool empty() const {
+	constexpr bool isEmpty() const {
 		if(!(this->min && this->max)) {
 			return false;
 		}
@@ -286,7 +286,7 @@ struct Interval {
 	}
 
 	constexpr Interval intersect(const Interval& other) const noexcept {
-		if(this->empty() || other.empty()) {
+		if(this->isEmpty() || other.isEmpty()) {
 			return Interval::Empty();
 		}
 
@@ -299,7 +299,7 @@ struct Interval {
 			std::swap(lhs, rhs);
 		}
 
-		if(Interval{rhs->min, lhs->max}.empty()) {
+		if(Interval{rhs->min, lhs->max}.isEmpty()) {
 			return Interval::Empty();
 		}
 

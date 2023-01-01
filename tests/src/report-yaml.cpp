@@ -627,14 +627,12 @@ foo:
 	t.done();
 }
 
-TEST_CASE("MonoListProp") {
+TEST_CASE("IndexedPropHolder") {
 	using namespace cray;
 	using _ = Source::Entry::MapValueType;
 
 	ReportTester t;
 	t.node = Node(Source::make({2, 3, 5}));
-
-	auto describer = t.node.is<Type::List>().of<Type::Int>();
 
 	SECTION("no data") {
 		t.node = Node(Source::null());
@@ -648,6 +646,8 @@ TEST_CASE("MonoListProp") {
 	}
 
 	SECTION("no constraints") {
+		t.node.is<Type::List>().of<Type::Int>().defaultValue({2, 4, 8});
+
 		t.expected = R"(
 ---
 [2, 3, 5]
@@ -664,8 +664,58 @@ TEST_CASE("MonoListProp") {
 )";
 	}
 
+	SECTION("fixed size") {
+		SECTION("exact size of data") {
+			t.node.is<Type::List>().of<Type::Int, 3>();
+
+			t.expected = R"(
+---
+# • |x| is 3
+[2, 3, 5]
+)";
+		}
+
+		SECTION("no data with size 2") {
+			t.node = Node(Source::null());
+			t.node.is<Type::List>().of<Type::Int, 2>();
+
+			t.expected = R"(
+---
+# • |x| is 2
+# -   # <Integer>  ⚠️ REQUIRED
+# - ...
+)";
+		}
+
+		SECTION("no data with size 3") {
+			t.node = Node(Source::null());
+			t.node.is<Type::List>().of<Type::Int, 3>();
+
+			t.expected = R"(
+---
+# • |x| is 3
+# -   # <Integer>  ⚠️ REQUIRED
+# - ...
+# - ...
+)";
+		}
+
+		SECTION("no data with large size") {
+			t.node = Node(Source::null());
+			t.node.is<Type::List>().of<Type::Int, 44>();
+
+			t.expected = R"(
+---
+# • |x| is 44
+# -   # <Integer>  ⚠️ REQUIRED
+# - ...
+# - (42 items more)
+)";
+		}
+	}
+
 	SECTION("size") {
-		describer.size(2 < x <= 5);
+		t.node.is<Type::List>().of<Type::Int>().size(2 < x <= 5);
 
 		t.expected = R"(
 ---

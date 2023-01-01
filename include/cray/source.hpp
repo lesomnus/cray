@@ -13,6 +13,10 @@
 
 namespace cray {
 
+/**
+ * @brief Access to underlying data.
+ * 
+ */
 class Source {
    public:
 	struct Entry {

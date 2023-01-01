@@ -212,6 +212,18 @@ struct ReportContext {
 				this->report(*next_prop);
 				this->enter();
 				this->dst << "- ...";
+
+				auto const interval = prop.interval();
+				if(interval.isSingleton()) {
+					auto const num = interval.minimum();
+					if(num > 3) {
+						this->enter();
+						this->dst << "- (" << (num - 2) << " items more)";
+					} else if(num == 3) {
+						this->enter();
+						this->dst << "- ...";
+					}
+				}
 			});
 			return;
 		}
@@ -387,13 +399,18 @@ struct ReportContext {
 	}
 
 	void annotate(IndexedPropHolder const& prop, std::function<void()> const& on_annotate) {
-		if(!prop.interval().isAll()) {
+		auto const interval = prop.interval();
+		if(!interval.isAll()) {
 			on_annotate();
 			this->enter();
 
-			this->dst << "# • { |x| ∈ W | ";
-			write(this->dst, prop.interval(), "|x|");
-			this->dst << " }";
+			if(interval.isSingleton()) {
+				this->dst << "# • |x| is " << interval.minimum();
+			} else {
+				this->dst << "# • { |x| ∈ W | ";
+				write(this->dst, interval, "|x|");
+				this->dst << " }";
+			}
 		}
 	}
 

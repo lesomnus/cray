@@ -595,9 +595,39 @@ TEMPLATE_LIST_TEST_CASE("Bound::operator-comparision", "", NumberTypePairs) {
 	STATIC_REQUIRE(UB{1, false} > UB{0, false});
 }
 
+TEST_CASE("Interval::Singleton") {
+	using Interval = cray::detail::Interval<int>;
+
+	STATIC_REQUIRE(!Interval::Singleton(42).isAll());
+	STATIC_REQUIRE(Interval::Singleton(42).isSingleton());
+	STATIC_REQUIRE(!Interval::Singleton(42).isEmpty());
+
+	STATIC_REQUIRE(42 == Interval::Singleton(42).minimum());
+}
+
+TEST_CASE("Interval::isSingleton") {
+	using Interval = cray::detail::Interval<int>;
+	using LB       = Interval::LowerBoundType;
+	using UB       = Interval::UpperBoundType;
+
+	STATIC_REQUIRE(Interval{LB{1, false}, UB{3, false}}.isSingleton());   // (1, 3)
+	STATIC_REQUIRE(!Interval{LB{1, false}, UB{2, false}}.isSingleton());  // (1, 2)
+	STATIC_REQUIRE(Interval{LB{1, false}, UB{2, true}}.isSingleton());    // (1, 2]
+	STATIC_REQUIRE(Interval{LB{1, true}, UB{2, false}}.isSingleton());    // [1, 2)
+	STATIC_REQUIRE(!Interval{LB{2, false}, UB{1, true}}.isSingleton());   // (2, 1]
+	STATIC_REQUIRE(!Interval{LB{2, true}, UB{1, false}}.isSingleton());   // [2, 1)
+	STATIC_REQUIRE(!Interval{LB{1, true}, UB{2, true}}.isSingleton());    // [1, 2]
+	STATIC_REQUIRE(!Interval{LB{2, true}, UB{1, true}}.isSingleton());    // [2, 1]
+
+	STATIC_REQUIRE(Interval{LB{1, true}, UB{1, true}}.isSingleton());     // [1, 1]
+	STATIC_REQUIRE(!Interval{LB{1, true}, UB{1, false}}.isSingleton());   // [1, 1)
+	STATIC_REQUIRE(!Interval{LB{1, false}, UB{1, true}}.isSingleton());   // (1, 1]
+	STATIC_REQUIRE(!Interval{LB{1, false}, UB{1, false}}.isSingleton());  // (1, 1)
+}
+
 TEMPLATE_LIST_TEST_CASE("Interval::empty", "", NumberTypes) {
 	constexpr auto empty = cray::detail::Interval<TestType>::Empty();
-	STATIC_REQUIRE(empty.empty());
+	STATIC_REQUIRE(empty.isEmpty());
 	STATIC_REQUIRE(!empty.contains(I64Max));
 	STATIC_REQUIRE(!empty.contains(I32Max));
 	STATIC_REQUIRE(!empty.contains(1));
@@ -714,7 +744,7 @@ TEST_CASE("Interval::intersect") {
 	};
 
 	auto const expect_empty = [](Interval const lhs, Interval const rhs) constexpr -> bool {
-		return lhs.intersect(rhs).empty() && rhs.intersect(lhs).empty();
+		return lhs.intersect(rhs).isEmpty() && rhs.intersect(lhs).isEmpty();
 	};
 
 	STATIC_REQUIRE(expect(                     // -1   0  +1  +2

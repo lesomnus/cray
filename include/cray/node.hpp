@@ -23,6 +23,10 @@ struct RequiredKey {
 
 }  // namespace detail
 
+/**
+ * @brief Access to property.
+ * 
+ */
 class Node {
    public:
 	Node() = default;
@@ -30,10 +34,21 @@ class Node {
 	Node(std::shared_ptr<Source> source)
 	    : prev_(std::make_shared<detail::RootProp>(std::move(source))) { }
 
+	/**
+	 * @brief Check if the data at this node satisfies the constraints.
+	 * 
+	 */
 	inline bool ok() const {
 		return this->curr_()->ok();
 	}
 
+	/**
+	 * @brief Indicates the type of property.
+	 * 
+	 * @tparam T Type of property.
+	 * @param annotation Metadata of property.
+	 * @return Describer of the property.
+	 */
 	template<Type T>
 	auto is(Annotation annotation) {
 		using P = detail::PropOf<T>;
@@ -43,31 +58,62 @@ class Node {
 		return D(std::move(curr));
 	}
 
+	/**
+	 * @brief Indicates the type of property.
+	 * 
+	 * @tparam T Type of property.
+	 * @return Describer of the property.
+	 */
 	template<Type T>
 	inline auto is() {
 		return this->is<T>(Annotation{});
 	}
 
-	template<typename T>
+	/**
+	 * @brief Generate property tree representing \a V and decode data into \a V.
+	 * 
+	 * @tparam V Value type represented by the property tree.
+	 * @param annotation Metadata of property.
+	 * @return Decoded value.
+	 */
+	template<typename V>
 	inline auto as(Annotation annotation) {
-		auto curr = this->resolve_<detail::PropFor<T>>(std::move(annotation));
-		if constexpr(detail::IsOptional<T>) {
+		auto curr = this->resolve_<detail::PropFor<V>>(std::move(annotation));
+		if constexpr(detail::IsOptional<V>) {
 			return curr->opt();
 		} else {
 			return curr->get();
 		}
 	}
 
-	template<typename T>
-	inline T as() {
-		return this->as<T>(Annotation{});
+	/**
+	 * @brief Generate property tree representing \a V and decode data into \a V.
+	 * 
+	 * @tparam V Value type represented by the property tree.
+	 * @return Decoded value.
+	 */
+	template<typename V>
+	inline V as() {
+		return this->as<V>(Annotation{});
 	}
 
+	/**
+	 * @brief Indicates the property that holds a field with given \a key.
+	 * 
+	 * @param key Name of the key.
+	 * @return Node that references a property held on a given \a key.
+	 */
 	inline Node operator[](std::string key) {
 		auto curr = this->resolve_<detail::PolyMpaProp>();
 		return Node(std::move(curr), Reference(std::move(key)));
 	}
 
+	/**
+	 * @brief Indicates the property that holds a field with given \a key.
+	 * 
+	 * @param key Name of the key.
+	 * @return Node that references a property held on a given \a key.
+	 */
 	inline Node operator[](detail::RequiredKey key) {
 		auto curr = this->resolve_<detail::PolyMpaProp>();
 		curr->required_keys.insert(key.value);
