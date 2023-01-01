@@ -5,7 +5,38 @@
 
 Access configs in a structured manner with validation and automatically generate documented configs.
 
+CRay creates a schema for your data by tracking how you access it. You don't have to keep checking each value in the middle of your code to see if it satisfies the condition you want. Validate documents at once with an automatically generated schema, and see at a glance what values went wrong.
+
+
+
+## Support
+
+### Loaders
+
+- YAML
+
+### Reporters
+
+- YAML
+- JSON Schema
+
+
+
+## CMake Integration
+```cmake
+add_library(foo ...)
+...
+target_link_libraries(
+	foo PRIVATE
+		CRay::CRay
+		CRay::yaml  # YAML loader support
+)
+```
+
+
 ## Example
+
+You may want to read what kind of [describers](docs/describers.md) are available.
 
 ```cpp
 #include <fstream>
@@ -29,7 +60,7 @@ struct Job {
 int main(int argc, char*[] argv) {
 	using namespace cray;
 	
-	Node doc(load::fromYaml(in));
+	Node doc(load::fromYaml("workflow.yaml"));
 
 	auto const name = doc["name"].as<std::string>(Annotation{
 	    .title       = "Name",
