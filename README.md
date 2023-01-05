@@ -93,12 +93,12 @@ int main(int argc, char*[] argv) {
 	auto const jobs = doc["jobs"].is<Type::Map>().of(job).get();
 
 	std::ofstream out("workflow.yaml");
-	report::asYaml(out, node);
+	report::asYaml(out, doc);
 	
 	std::ofstream out("workflow.schema.json");
-	report::asJsonSchema(out, node);
+	report::asJsonSchema(out, doc);
 
-	if(!node.ok()){
+	if(!doc.ok()){
 		// There is a field that does not satisfy the condition or has the wrong type.
 		return -1;
 	}

@@ -1,3 +1,4 @@
+#include <concepts>
 #include <cstddef>
 #include <functional>
 #include <iomanip>
@@ -18,6 +19,19 @@ namespace cray {
 namespace detail {
 namespace {
 
+template<class R, class... Args>
+R invoke(R&& fallback, const std::function<R(Args...)>& f, Args&&... args) {
+	if(!f) {
+		return std::forward<R>(fallback);
+	}
+
+	return f(std::forward<Args>(args)...);
+}
+
+struct Callback {
+	std::function<bool()> inline_note;
+};
+
 template<typename T>
 void write(std::ostream& o, Interval<T> interval, std::string const& var = "x") {
 	if(interval.min.has_value()) {
@@ -34,18 +48,18 @@ void write(std::ostream& o, Interval<T> interval, std::string const& var = "x") 
 }
 
 struct ReportContext {
-	void report(Prop const& prop) {
+	void report(Prop const& prop, Callback const& callback = Callback{}) {
 		++this->level;
 
 		const auto t = prop.type();
 		switch(t) {
-		case Type::Nil: this->reportScalarProp<Type::Nil>(prop); break;
-		case Type::Bool: this->reportScalarProp<Type::Bool>(prop); break;
-		case Type::Int: this->reportScalarProp<Type::Int>(prop); break;
-		case Type::Num: this->reportScalarProp<Type::Num>(prop); break;
-		case Type::Str: this->reportScalarProp<Type::Str>(prop); break;
-		case Type::Map: this->report(dynamic_cast<KeyedPropHolder const&>(prop)); break;
-		case Type::List: this->report(dynamic_cast<IndexedPropHolder const&>(prop)); break;
+		case Type::Nil: this->reportScalarProp<Type::Nil>(prop, callback); break;
+		case Type::Bool: this->reportScalarProp<Type::Bool>(prop, callback); break;
+		case Type::Int: this->reportScalarProp<Type::Int>(prop, callback); break;
+		case Type::Num: this->reportScalarProp<Type::Num>(prop, callback); break;
+		case Type::Str: this->reportScalarProp<Type::Str>(prop, callback); break;
+		case Type::Map: this->report(dynamic_cast<KeyedPropHolder const&>(prop), callback); break;
+		case Type::List: this->report(dynamic_cast<IndexedPropHolder const&>(prop), callback); break;
 
 		default: throw InvalidTypeError(t);
 		}
@@ -54,7 +68,7 @@ struct ReportContext {
 	}
 
 	template<Type T>
-	void reportScalarProp(Prop const& prop) {
+	void reportScalarProp(Prop const& prop, Callback const& callback) {
 		if constexpr(T == Type::Nil) {
 			dst << "~";
 			return;
@@ -63,9 +77,19 @@ struct ReportContext {
 		auto const& p     = dynamic_cast<CodecProp<StorageOf<T>> const&>(prop);
 		auto const  value = p.opt();
 		if(!value.has_value()) {
-			dst << "  # <" << p.name() << ">";
-			if(p.isNeeded()) {
-				dst << "  ⚠️ REQUIRED";
+			StorageOf<T> v;
+			bool const   ok = p.source == nullptr ? false : p.source->get(v);
+			if(ok) {
+				dst << v;
+			}
+
+			if(invoke(true, callback.inline_note)) {
+				dst << "  # <" << p.name() << ">";
+				if(ok) {
+					dst << "  ⚠️ INVALID";
+				} else if(p.isNeeded()) {
+					dst << "  ⚠️ REQUIRED";
+				}
 			}
 			return;
 		}
@@ -99,15 +123,15 @@ struct ReportContext {
 		this->dst << *value;
 	}
 
-	void report(KeyedPropHolder const& prop) {
+	void report(KeyedPropHolder const& prop, Callback const& callback) {
 		if(prop.isMono()) {
-			reportMonoMap(prop);
+			reportMonoMap(prop, callback);
 		} else {
-			reportPolyMap(prop);
+			reportPolyMap(prop, callback);
 		}
 	}
 
-	void reportPolyMap(KeyedPropHolder const& prop) {
+	void reportPolyMap(KeyedPropHolder const& prop, Callback const& callback) {
 		std::shared_ptr<Source> source;
 		if(prop.hasDefault() && !prop.source->is(Type::Map)) {
 			source = Source::make(nullptr);
@@ -137,7 +161,7 @@ struct ReportContext {
 		}
 	}
 
-	void reportMonoMap(KeyedPropHolder const& prop) {
+	void reportMonoMap(KeyedPropHolder const& prop, Callback const& callback) {
 		auto const next_prop = prop.at(Reference());
 		if(next_prop == nullptr) {
 			return;
@@ -176,15 +200,15 @@ struct ReportContext {
 		}
 	}
 
-	void report(IndexedPropHolder const& prop) {
+	void report(IndexedPropHolder const& prop, Callback const& callback) {
 		if(prop.isMono()) {
-			reportMonoList(prop);
+			reportMonoList(prop, callback);
 		} else {
 			throw std::runtime_error("not implemented");
 		}
 	}
 
-	void reportMonoList(IndexedPropHolder const& prop) {
+	void reportMonoList(IndexedPropHolder const& prop, Callback const& callback) {
 		auto const next_prop = prop.at(Reference());
 		if(next_prop == nullptr) {
 			return;
@@ -228,6 +252,8 @@ struct ReportContext {
 			return;
 		}
 
+		const bool ok = is_default_value || prop.ok();
+
 		if(isScalarType(next_prop->type())) {
 			bool const is_annotated = annotate(*next_prop);
 			if(is_annotated || this->level <= 0) {
@@ -248,19 +274,19 @@ struct ReportContext {
 
 				next_prop->source = source->next(i);
 				next_prop->ref    = i;
-				this->report(*next_prop);
+
+				this->report(*next_prop, Callback{.inline_note = [] -> bool {
+					return false;
+				}});
 			}
 
 			this->dst << "]";
+
+			if(!ok) {
+				this->dst << "  ⚠️ INVALID";
+			}
 		} else {
 			annotate(*next_prop);
-
-			// bool is_first = true;
-			// annotate(*next_prop, [&] {
-			// 	if(std::exchange(is_first, false)) {
-			// 		this->enter();
-			// 	}
-			// });
 
 			std::size_t const cnt_elems = source->size();
 			for(std::size_t i = 0; i < cnt_elems; ++i) {
@@ -392,8 +418,8 @@ struct ReportContext {
 			on_annotate();
 			this->enter();
 
-			this->dst << "# • { |x| ∈ W | ";
-			write(this->dst, prop.length, "|x|");
+			this->dst << "# • { |X| ∈ W | ";
+			write(this->dst, prop.length, "|X|");
 			this->dst << " }";
 		}
 	}
@@ -405,10 +431,10 @@ struct ReportContext {
 			this->enter();
 
 			if(interval.isSingleton()) {
-				this->dst << "# • |x| is " << interval.minimum();
+				this->dst << "# • |X| is " << interval.minimum();
 			} else {
-				this->dst << "# • { |x| ∈ W | ";
-				write(this->dst, interval, "|x|");
+				this->dst << "# • { |X| ∈ W | ";
+				write(this->dst, interval, "|X|");
 				this->dst << " }";
 			}
 		}

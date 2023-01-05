@@ -89,8 +89,18 @@ class MonoListProp
 			return !this->isNeeded() || this->hasDefault();
 		}
 
-		if(std::size_t const size = this->source->size(); !this->interval().contains(size)) {
+		std::size_t const size = this->source->size();
+		if(!this->interval().contains(size)) {
 			return false;
+		}
+
+		for(std::size_t i = 0; i < size; ++i) {
+			this->next_prop->source = this->source->next(i);
+
+			bool const ok = this->next_prop->ok();
+			if(!ok) {
+				return false;
+			}
 		}
 
 		return true;

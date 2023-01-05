@@ -200,7 +200,7 @@ TEST_CASE("IntProp") {
 		t.expected = R"(
 ---
 # • { x ∈ Z | -1 < x ≤ 1 }
-  # <Integer>
+42  # <Integer>  ⚠️ INVALID
 )";
 	}
 
@@ -258,7 +258,7 @@ TEST_CASE("NumProp") {
 		t.expected = R"(
 ---
 # • { x ∈ Q | -1.2 < x ≤ 2.718 }
-  # <Number>
+3.14  # <Number>  ⚠️ INVALID
 )";
 	}
 
@@ -359,8 +359,8 @@ ccc
 
 		t.expected = R"(
 ---
-# • { |x| ∈ W | 3 < |x| ≤ 5 }
-  # <String>
+# • { |X| ∈ W | 3 < |X| ≤ 5 }
+hypnos  # <String>  ⚠️ INVALID
 )";
 	}
 
@@ -489,7 +489,7 @@ b:   # <Integer>  ⚠️ REQUIRED
 ---
 # Counts
 # • { x ∈ Z | 3 < x }
-a:   # <Integer>
+a: 3  # <Integer>  ⚠️ INVALID
 )";
 	}
 
@@ -512,9 +512,11 @@ a:   # <Integer>
 			    _{"A", {_{"a", 1}, _{"b", 2}, _{"c", 3}}},
 			    _{"B", {_{"d", 4}, _{"e", 5}, _{"f", 6}}},
 			}));
-			t.node.is<Type::Map>().of(prop<Type::Map>().of<Type::Int>());
 
-			t.expected = R"(
+			auto int_describer = prop<Type::Int>();
+
+			SECTION("that is valid") {
+				t.expected = R"(
 ---
 A: 
   a: 1
@@ -525,6 +527,28 @@ B:
   e: 5
   f: 6
 )";
+			}
+
+			SECTION("that is invalid") {
+				int_describer.mutipleOf(2);
+
+				// TODO: disable annotation on repeated field.
+				t.expected = R"(
+---
+A: 
+  # • { x ∈ Z | x / 2 ∈ Z }
+  a: 1  # <Integer>  ⚠️ INVALID
+  b: 2
+  c: 3  # <Integer>  ⚠️ INVALID
+B: 
+  # • { x ∈ Z | x / 2 ∈ Z }
+  d: 4
+  e: 5  # <Integer>  ⚠️ INVALID
+  f: 6
+)";
+			}
+
+			t.node.is<Type::Map>().of(prop<Type::Map>().of(int_describer));
 		}
 
 		SECTION("required fields") {
@@ -670,8 +694,29 @@ TEST_CASE("IndexedPropHolder") {
 
 			t.expected = R"(
 ---
-# • |x| is 3
+# • |X| is 3
 [2, 3, 5]
+)";
+		}
+
+		SECTION("invalid size of data") {
+			t.node.is<Type::List>().of<Type::Int, 5>();
+
+			t.expected = R"(
+---
+# • |X| is 5
+[2, 3, 5]  ⚠️ INVALID
+)";
+		}
+
+		SECTION("invalid data") {
+			t.node.is<Type::List>().of<3>(prop<Type::Int>().mutipleOf(2));
+
+			t.expected = R"(
+---
+# • |X| is 3
+# • { x ∈ Z | x / 2 ∈ Z }
+[2, 3, 5]  ⚠️ INVALID
 )";
 		}
 
@@ -681,7 +726,7 @@ TEST_CASE("IndexedPropHolder") {
 
 			t.expected = R"(
 ---
-# • |x| is 2
+# • |X| is 2
 # -   # <Integer>  ⚠️ REQUIRED
 # - ...
 )";
@@ -693,7 +738,7 @@ TEST_CASE("IndexedPropHolder") {
 
 			t.expected = R"(
 ---
-# • |x| is 3
+# • |X| is 3
 # -   # <Integer>  ⚠️ REQUIRED
 # - ...
 # - ...
@@ -706,7 +751,7 @@ TEST_CASE("IndexedPropHolder") {
 
 			t.expected = R"(
 ---
-# • |x| is 44
+# • |X| is 44
 # -   # <Integer>  ⚠️ REQUIRED
 # - ...
 # - (42 items more)
@@ -719,7 +764,7 @@ TEST_CASE("IndexedPropHolder") {
 
 		t.expected = R"(
 ---
-# • { |x| ∈ W | 2 < |x| ≤ 5 }
+# • { |X| ∈ W | 2 < |X| ≤ 5 }
 [2, 3, 5]
 )";
 	}

@@ -81,8 +81,18 @@ class ArrayProp
 			return !this->isNeeded() || this->hasDefault();
 		}
 
-		if(this->source->size() != N) {
+		std::size_t const size = this->source->size();
+		if(size != N) {
 			return false;
+		}
+
+		for(std::size_t i = 0; i < size; ++i) {
+			this->next_prop->source = this->source->next(i);
+
+			bool const ok = this->next_prop->ok();
+			if(!ok) {
+				return false;
+			}
 		}
 
 		return true;

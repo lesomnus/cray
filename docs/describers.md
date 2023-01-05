@@ -68,7 +68,7 @@ Validation passes even if the value is not in the specified interval. Instead, w
 
 ### Num
 
-Mapped to integer types such as `int`, `long`, `unsigned int`, etc.
+Mapped to floating point types such as `float`, `double`, `long double`, etc.
 
 ```cpp
 prop<Type::Num>()
@@ -169,7 +169,7 @@ prop<Type::Map>().to<V>()
 
 #### `cray::field(...)`
 
-Value is restricted to contain the given key with the given type. The key can be omitted if the given type is instance of std::optional.
+Value is restricted to contain the given key with the given type. The key can be omitted if the given type is instance of `std::optional`.
 
 
 

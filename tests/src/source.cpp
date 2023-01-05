@@ -20,6 +20,7 @@ bool eq(std::shared_ptr<cray::Source> src, T storage) {
 
 // make() should return a Source containing information like (written in YAML):
 //```yaml
+// empty:
 // nil: ~
 // b_t: true
 // b_f: false
@@ -138,6 +139,36 @@ void source_test(std::function<std::shared_ptr<cray::Source>()> make) {
 		REQUIRE(!src->has("a"));
 		REQUIRE(nullptr == std::as_const(*src).next("a"));
 		REQUIRE(!src->has("a"));
+	}
+
+	SECTION("empty field") {
+		auto empty = src->next("empty");
+		auto get   = [&empty](auto v) -> bool {
+            return empty->get(v);
+		};
+
+		SECTION("is nil or string or not typed") {
+			REQUIRE(!empty->is(Type::Bool));
+			REQUIRE(!empty->is(Type::Int));
+			REQUIRE(!empty->is(Type::Num));
+			REQUIRE(!empty->is(Type::Map));
+			REQUIRE(!empty->is(Type::List));
+
+			REQUIRE(!get(StorageOf<Type::Bool>{}));
+			REQUIRE(!get(StorageOf<Type::Int>{}));
+			REQUIRE(!get(StorageOf<Type::Num>{}));
+		}
+
+		SECTION("is empty string if it can be string") {
+			SECTION("consistency") {
+				REQUIRE(empty->is(Type::Str) == get(StorageOf<Type::Str>{}));
+			}
+
+			StorageOf<Type::Str> v;
+			if(empty->get(v)) {
+				REQUIRE(v.empty());
+			}
+		}
 	}
 }
 
