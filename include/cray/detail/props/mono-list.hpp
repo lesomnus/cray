@@ -134,6 +134,16 @@ class MonoListProp
 		return this->size;
 	}
 
+	void forEachProps(Source const& source, std::function<void(std::size_t, std::shared_ptr<Prop> const&)> const& functor) const override {
+		std::size_t const size = source.size();
+		for(std::size_t i = 0; i < size; ++i) {
+			this->next_prop->source = source.next(i);
+			this->next_prop->ref    = i;
+
+			functor(i, this->next_prop);
+		}
+	}
+
 	std::shared_ptr<CodecProp<NextStorageType>> next_prop;
 
 	Interval<std::size_t> size;

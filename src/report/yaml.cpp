@@ -20,7 +20,7 @@ namespace detail {
 namespace {
 
 template<class R, class... Args>
-R invoke(R&& fallback, const std::function<R(Args...)>& f, Args&&... args) {
+R invoke(R&& fallback, std::function<R(Args...)> const& f, Args&&... args) {
 	if(!f) {
 		return std::forward<R>(fallback);
 	}
@@ -51,7 +51,7 @@ struct ReportContext {
 	void report(Prop const& prop, Callback const& callback = Callback{}) {
 		++this->level;
 
-		const auto t = prop.type();
+		auto const t = prop.type();
 		switch(t) {
 		case Type::Nil: this->reportScalarProp<Type::Nil>(prop, callback); break;
 		case Type::Bool: this->reportScalarProp<Type::Bool>(prop, callback); break;
@@ -249,43 +249,27 @@ struct ReportContext {
 					}
 				}
 			});
+
 			return;
 		}
 
-		const bool ok = is_default_value || prop.ok();
+		auto const type = next_prop->type();
 
-		if(isScalarType(next_prop->type())) {
-			bool const is_annotated = annotate(*next_prop);
-			if(is_annotated || this->level <= 0) {
-				this->enter();
-			}
-			if(is_default_value) {
-				this->dst << "# ";
-			}
-			this->dst << "[";
+		bool is_multiline = !isScalarType(type);
+		if(type == Type::Str) {
+			std::string v;
 
-			bool is_first = true;
-
-			std::size_t const cnt_elems = source->size();
-			for(std::size_t i = 0; i < cnt_elems; ++i) {
-				if(!std::exchange(is_first, false)) {
-					this->dst << ", ";
+			std::size_t const size = source->size();
+			for(std::size_t i = 0; i < size; ++i) {
+				source->next(i)->get(v);
+				if(v.find('\n') != std::string::npos) {
+					is_multiline = true;
+					break;
 				}
-
-				next_prop->source = source->next(i);
-				next_prop->ref    = i;
-
-				this->report(*next_prop, Callback{.inline_note = [] -> bool {
-					return false;
-				}});
 			}
+		}
 
-			this->dst << "]";
-
-			if(!ok) {
-				this->dst << "  ⚠️ INVALID";
-			}
-		} else {
+		if(is_multiline) {
 			annotate(*next_prop);
 
 			std::size_t const cnt_elems = source->size();
@@ -297,6 +281,41 @@ struct ReportContext {
 				next_prop->ref    = i;
 				this->report(*next_prop);
 			}
+
+			return;
+		}
+
+		bool const ok = is_default_value || prop.ok();
+
+		bool const is_annotated = annotate(*next_prop);
+		if(is_annotated || this->level <= 0) {
+			this->enter();
+		}
+		if(is_default_value) {
+			this->dst << "# ";
+		}
+		this->dst << "[";
+
+		bool is_first = true;
+
+		std::size_t const cnt_elems = source->size();
+		for(std::size_t i = 0; i < cnt_elems; ++i) {
+			if(!std::exchange(is_first, false)) {
+				this->dst << ", ";
+			}
+
+			next_prop->source = source->next(i);
+			next_prop->ref    = i;
+
+			this->report(*next_prop, Callback{.inline_note = []() -> bool {
+				return false;
+			}});
+		}
+
+		this->dst << "]";
+
+		if(!ok) {
+			this->dst << "  ⚠️ INVALID";
 		}
 	}
 
@@ -360,7 +379,7 @@ struct ReportContext {
 	}
 
 	template<Type T>
-	    requires((T == Type::Int) || (T == Type::Num))
+	requires((T == Type::Int) || (T == Type::Num))
 	void annotateNumeric(NumericProp<T> const& prop, std::function<void()> const& on_annotate) {
 		bool const has_interval = !prop.interval.isAll();
 		bool const has_divisor  = !prop.multiple_of.empty();

@@ -373,15 +373,9 @@ TEST_CASE("PolyMapProp") {
 
 	ReportTester t;
 	t.node = Node(Source::make({
-	    _{"foo",
-	      {
-	          _{"bar", 42},
-	      }},
-	    _{"a", 3},
-	    _{"b",
-	      {
-	          _{"bar", 42},
-	      }},
+	    _{"foo", {_{"bar", 42}}},
+	    _{  "a",              3},
+	    _{  "b", {_{"bar", 42}}},
 	}));
 
 	SECTION("no constraints") {
@@ -436,7 +430,9 @@ TEST_CASE("MonoMapProp") {
 	using _ = Source::Entry::MapValueType;
 
 	ReportTester t;
-	t.node = Node(Source::make({_{"a", 3}}));
+	t.node = Node(Source::make({
+	    _{"a", 3}
+    }));
 
 	auto describer = t.node.is<Type::Map>().of<Type::Int>();
 
@@ -610,7 +606,9 @@ int:   # <Integer>  ⚠️ REQUIRED
 	SECTION("with data") {
 		using H = testing::Holder<std::string>;
 
-		t.node = Node(Source::make({_{"str", "hypnos"}}));
+		t.node = Node(Source::make({
+		    _{"str", "hypnos"}
+        }));
 		t.node.is<Type::Map>().to<H>()
 		    | field("str", &H::value);
 
@@ -625,7 +623,9 @@ str: hypnos
 
 		t.node.is<Type::Map>().to<H>()
 		        | field("list", &H::value)
-		    || H{{2, 3, 5, 7, 11}};
+		    || H{
+		        .value = {2, 3, 5, 7, 11}
+        };
 
 		t.expected = R"(
 ---
@@ -766,6 +766,34 @@ TEST_CASE("IndexedPropHolder") {
 ---
 # • { |X| ∈ W | 2 < |X| ≤ 5 }
 [2, 3, 5]
+)";
+	}
+
+	SECTION("of singleline strings") {
+		t.node = Node(Source::make({"foo", "bar", "baz"}));
+		t.node.is<Type::List>().of<Type::Str>();
+
+		t.expected = R"(
+---
+[foo, bar, baz]
+)";
+	}
+
+	SECTION("of multiline strings") {
+		t.node = Node(Source::make({"aa", "b\nb", "ccc", "dd\n\ndd"}));
+		t.node.is<Type::List>().of<Type::Str>();
+
+		t.expected = R"(
+---
+- aa
+- |
+  b
+  b
+- ccc
+- |
+  dd
+  
+  dd
 )";
 	}
 

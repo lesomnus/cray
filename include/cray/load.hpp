@@ -50,11 +50,21 @@ std::shared_ptr<LoaderFactory> get(std::string const& name);
 
 namespace load {
 
-inline std::shared_ptr<Source> fromJson(std::istream& in) { return Source::load("json", in); }
-inline std::shared_ptr<Source> fromJson(std::filesystem::path const& path) { return Source::load("json", path); }
+inline std::shared_ptr<Source> fromJson(std::istream& in) {
+	return Source::load("json", in);
+}
 
-inline std::shared_ptr<Source> fromYaml(std::istream& in) { return Source::load("yaml", in); }
-inline std::shared_ptr<Source> fromYaml(std::filesystem::path const& path) { return Source::load("yaml", path); }
+inline std::shared_ptr<Source> fromJson(std::filesystem::path const& path) {
+	return Source::load("json", path);
+}
+
+inline std::shared_ptr<Source> fromYaml(std::istream& in) {
+	return Source::load("yaml", in);
+}
+
+inline std::shared_ptr<Source> fromYaml(std::filesystem::path const& path) {
+	return Source::load("yaml", path);
+}
 
 }  // namespace load
 

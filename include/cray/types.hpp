@@ -65,6 +65,7 @@ template<std::floating_point T> struct TypeFor_<T> { static constexpr Type value
 
 template<typename T> struct IsOptional_                   { static constexpr bool value = false; };
 template<typename T> struct IsOptional_<std::optional<T>> { static constexpr bool value = true;  };
+
 // clang-format on
 
 template<typename T>

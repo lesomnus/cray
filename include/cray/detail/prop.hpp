@@ -283,6 +283,8 @@ class KeyedPropHolder: public PropHolder {
 class IndexedPropHolder: public PropHolder {
    public:
 	using PropHolder::PropHolder;
+
+	virtual void forEachProps(Source const& source, std::function<void(std::size_t, std::shared_ptr<Prop> const&)> const& functor) const = 0;
 };
 
 template<Type T>
@@ -310,6 +312,7 @@ template<typename T>
 static constexpr bool IsMonoPropHolder = IsMonoPropHolder_<T>::value;
 
 struct EmptyContext { };
+
 struct GettableContext { };
 
 template<typename T, typename Ctx>
