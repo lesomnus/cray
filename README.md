@@ -13,7 +13,7 @@ CRay creates a schema for your data by tracking how you access it. You don't hav
 
 ### Loaders
 
-- YAML
+- YAML (powered by [jbeder/yaml-cpp](https://github.com/jbeder/yaml-cpp))
 
 ### Reporters
 
@@ -24,6 +24,16 @@ CRay creates a schema for your data by tracking how you access it. You don't hav
 
 ## CMake Integration
 ```cmake
+include(FetchContent)
+FetchContent_Declare(
+  CRay
+  GIT_REPOSITORY https://github.com/lesomnus/cray.git
+  GIT_TAG        main
+)
+FetchContent_MakeAvailable(CRay)
+
+...
+
 add_library(foo ...)
 ...
 target_link_libraries(
@@ -32,6 +42,8 @@ target_link_libraries(
 		CRay::yaml  # YAML loader support
 )
 ```
+
+Note that `CRay::yaml` is enabled only if the `yaml-cpp` package is available.
 
 
 ## Example
