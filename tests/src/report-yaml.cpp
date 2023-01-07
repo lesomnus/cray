@@ -911,6 +911,42 @@ TEST_CASE("IndexedPropHolder") {
 		}
 	}
 
+	SECTION("of StructuredMapProp") {
+		using H = testing::Holder<int>;
+
+		SECTION("no data") {
+			t.node = Node(Source::null());
+			t.node.is<Type::List>().of(
+			    prop<Type::Map>().to<H>()
+			    | field("value", &H::value));
+
+			t.expected = R"(
+---
+# - 
+#   value:   # <Integer>  ⚠️ REQUIRED
+# - ...
+)";
+		}
+
+		SECTION("with data") {
+			t.node = Node(Source::make({
+			    {_{"value", 42}, _{"", 0}},
+			    {_{"value", 36}, _{"", 0}},
+			}));
+			t.node.is<Type::List>().of(
+			    prop<Type::Map>().to<H>()
+			    | field("value", &H::value));
+
+			t.expected = R"(
+---
+- 
+  value: 42
+- 
+  value: 36
+)";
+		}
+	}
+
 	t.done();
 }
 
@@ -951,6 +987,11 @@ dish:
     #   # -   # <Number>
     #   # - ...
     # ...
+  ingredients: 
+    # - 
+    #   name:   # <String>  ⚠️ REQUIRED
+    #   qty:   # <Number>  ⚠️ REQUIRED
+    # - ...
 )";
 	}
 
@@ -959,12 +1000,13 @@ dish:
 	    | field("int", &Enchilada::integer)
 	    | field("num", &Enchilada::number)
 	    | field("str", &Enchilada::string)
-	    | field("extrinsics", &Enchilada::extrinsics);
-	// | (field(
-	//     "ingredients",
-	//     prop<Type::Map>().to<Ingredient>()
-	//         | field("name", &Ingredient::name)
-	//         | field("qty", &Ingredient::quantity)));
+	    | field("extrinsics", &Enchilada::extrinsics)
+	    | field(
+	        "ingredients",
+	        &Enchilada::ingredients,
+	        prop<Type::Map>().to<Ingredient>()
+	            | field("name", &Ingredient::name)
+	            | field("qty", &Ingredient::quantity));
 
 	t.done();
 }

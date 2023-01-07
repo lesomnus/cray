@@ -155,7 +155,6 @@ struct ReportContext {
 			source = prop.source;
 		}
 
-		bool is_first = true;
 		prop.forEachProps(*source, [&](std::string const& key, std::shared_ptr<Prop> const& next_prop) {
 			bool const is_annotated = this->annotate(*next_prop);
 			this->enter();
@@ -169,10 +168,6 @@ struct ReportContext {
 
 			return true;
 		});
-
-		if(is_first == 0) {
-			// TODO: next prop structure
-		}
 	}
 
 	void reportMonoMap(KeyedPropHolder const& prop, Callback const& callback) {

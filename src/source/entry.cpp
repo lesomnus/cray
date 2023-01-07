@@ -74,6 +74,7 @@ class RootEntry: public Entry_ {
 	void set(StorageOf<Type::Num>        value) override { }
 	void set(StorageOf<Type::Str> const& value) override { }
 	void set(StorageOf<Type::Str>&&      value) override { }
+
 	// clang-format on
 
 	void assign(Reference const& ref, std::shared_ptr<Entry_> entry) override {
@@ -138,6 +139,7 @@ class ScalarEntry: public Entry_ {
 	void set(StorageOf<Type::Num>        value) { this->value = value; }
 	void set(StorageOf<Type::Str> const& value) { this->value = value; }
 	void set(StorageOf<Type::Str>&&      value) { this->value = value; }
+
 	// clang-format on
 
 	void assign(Reference const& ref, std::shared_ptr<Entry_> entry) override {
@@ -227,6 +229,7 @@ class MapEntry: public Entry_ {
 	void set(StorageOf<Type::Num>        value) override { }
 	void set(StorageOf<Type::Str> const& value) override { }
 	void set(StorageOf<Type::Str>&&      value) override { }
+
 	// clang-format on
 
 	void assign(Reference const& ref, std::shared_ptr<Entry_> entry) override {
@@ -306,6 +309,7 @@ class ListEntry: public Entry_ {
 	void set(StorageOf<Type::Num>        value) override { }
 	void set(StorageOf<Type::Str> const& value) override { }
 	void set(StorageOf<Type::Str>&&      value) override { }
+
 	// clang-format on
 
 	void assign(Reference const& ref, std::shared_ptr<Entry_> entry) override {
@@ -343,6 +347,10 @@ class Accessor: public Source {
 
 	std::shared_ptr<Source> next(Reference const& ref) const override {
 		auto curr = this->curr_();
+		if(curr == nullptr) {
+			return nullptr;
+		}
+
 		if(!curr->has(ref)) {
 			return nullptr;
 		}
@@ -395,6 +403,7 @@ class Accessor: public Source {
 	void set(StorageOf<Type::Num>        value) override { this->set_(value); }
 	void set(StorageOf<Type::Str> const& value) override { this->set_(value); }
 	void set(StorageOf<Type::Str>&&      value) override { this->set_(std::move(value)); }
+
 	// clang-format on
 
 	std::shared_ptr<Entry_> prev;
@@ -463,6 +472,7 @@ Source::Entry::Entry(std::initializer_list<MapValueType> values) : source(std::m
 
 Source::Entry::Entry(int         value) : Entry(static_cast<StorageOf<Type::Int>>(value)) { }
 Source::Entry::Entry(char const* value) : Entry(StorageOf<Type::Str>(value)) { }
+
 // clang-format on
 
 std::shared_ptr<Source> Source::make(Source::Entry value) {
