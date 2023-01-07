@@ -310,6 +310,16 @@ hypnos
 )";
 	}
 
+	SECTION("interval") {
+		describer.length(3 < x <= 5);
+
+		t.expected = R"(
+---
+# • { |X| ∈ W | 3 < |X| ≤ 5 }
+hypnos  # <String>  ⚠️ INVALID
+)";
+	}
+
 	SECTION("multiline") {
 		t.node = Node(Source::make(R"(aaa
 bbb
@@ -332,6 +342,55 @@ ccc
 )";
 	}
 
+	SECTION("escape") {
+		SECTION("double quote") {
+			t.node = Node(Source::make(R"("foo")"));
+
+			t.expected = R"(
+---
+"\"foo\""
+)";
+		}
+
+		SECTION("comma") {
+			t.node = Node(Source::make(R"(foo, bar)"));
+
+			t.expected = R"(
+---
+"foo, bar"
+)";
+		}
+
+		SECTION("round bracket") {
+			t.node = Node(Source::make(R"((foo)"));
+
+			t.expected = R"(
+---
+"(foo"
+)";
+		}
+
+		SECTION("square bracket") {
+			t.node = Node(Source::make(R"([foo)"));
+
+			t.expected = R"(
+---
+"[foo"
+)";
+		}
+
+		SECTION("square bracket") {
+			t.node = Node(Source::make(R"({foo)"));
+
+			t.expected = R"(
+---
+"{foo"
+)";
+		}
+
+		t.node.is<Type::Str>();
+	}
+
 	SECTION("multiline default value") {
 		t.node = Node(Source::null());
 		t.node.is<Type::Str>().defaultValue(R"(aaa
@@ -345,22 +404,13 @@ ccc
 		t.expected = R"(
 ---
 
+# |
 # aaa
 # bbb
 # 
 # ccc
 # 
 # 
-)";
-	}
-
-	SECTION("interval") {
-		describer.length(3 < x <= 5);
-
-		t.expected = R"(
----
-# • { |X| ∈ W | 3 < |X| ≤ 5 }
-hypnos  # <String>  ⚠️ INVALID
 )";
 	}
 

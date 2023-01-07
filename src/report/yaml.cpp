@@ -98,20 +98,34 @@ struct ReportContext {
 
 		if constexpr(T == Type::Str) {
 			if(value->find('\n') != std::string::npos) {
-				if(!is_default_value) {
-					this->dst << "|";
-				}
-
-				std::istringstream s(*value);
-				std::string        line;
-				while(std::getline(s, line)) {
-					this->enter();
-
+				auto const print_multiline = [&] {
 					if(is_default_value) {
-						this->dst << "# ";
+						this->enter();
 					}
-					this->dst << line;
+					this->dst << "|";
+
+					std::istringstream s(*value);
+					std::string        line;
+					while(std::getline(s, line)) {
+						this->enter();
+						this->dst << line;
+					}
+				};
+
+				if(is_default_value) {
+					this->withComment(print_multiline);
+				} else {
+					print_multiline();
 				}
+
+				return;
+			}
+
+			if(value->find_first_of("\",(){}[]") != std::string::npos) {
+				if(is_default_value) {
+					this->dst << "# ";
+				}
+				this->dst << std::quoted(*value);
 
 				return;
 			}
